@@ -1,11 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import GameRoot from '@/game/GameRoot';
+import ErrorBoundary from '@/ui/ErrorBoundary';
 
 export default function App() {
   return (
     <View style={styles.container}>
-      <GameRoot />
+      <ErrorBoundary>
+        <GameRoot />
+      </ErrorBoundary>
       <StatusBar style="light" hidden />
     </View>
   );
