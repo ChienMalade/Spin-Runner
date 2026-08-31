@@ -72,8 +72,16 @@ export function updateSpinLoop(intensity: number): void {
     return;
   }
   player.volume = Math.min(0.55, intensity * 0.6);
-  player.playbackRate = 0.75 + intensity * 0.9;
-  if (!player.playing) player.play();
+  player.playbackRate = 0.4 + intensity * 0.45; // roughly half the old 0.75-1.65 range — was 2x too fast
+  if (!player.playing) {
+    player.seekTo(0);
+    player.play();
+  } else if (player.duration > 0 && player.currentTime >= player.duration - 0.03) {
+    // Manual loop safety net: on some platforms `loop` stops being honored once playbackRate keeps
+    // changing dynamically, which was cutting the whoosh off after a single pass instead of
+    // continuing for as long as the spin stays fast.
+    player.seekTo(0);
+  }
 }
 
 export function playSfx(name: SfxName): void {

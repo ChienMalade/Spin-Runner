@@ -337,16 +337,29 @@ export class GameWorld {
       // While a charge is mid-drain (0 < stamina < 1) from an earlier hold, a plain re-press should
       // just resume draining it, not fire a fresh dash — only a real double-tap (two quick taps in a
       // row) is allowed to jump ahead and spend a different charge instead.
-      const hasResumableDrain = p.stamina > 0 && p.stamina < 1 && p.dashCharges > 0;
+      // A graduation that has filled to 1 but hasn't yet finished its STAMINA_FULL_CHARGE_MS hold (so
+      // it still reads as `dashCharges`, not `dashCharges + 1`) is nonetheless visually a full,
+      // ready bar — firing must spend *that* one rather than reaching past it into an already-banked
+      // charge, which used to orphan it (the fill silently jumped to a different bar and reset).
+      const readyViaStamina = p.stamina >= 1;
+      const hasResumableDrain = !readyViaStamina && p.stamina > 0 && p.dashCharges > 0;
       const isDoubleTap = now - p.lastBriefTapReleaseAt < DOUBLE_TAP_WINDOW_MS;
       if (p.sprintInput && !p.prevSprintInput) p.sprintPressStartAt = now;
-      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0 && (!hasResumableDrain || isDoubleTap)) {
+      if (
+        p.sprintInput &&
+        !p.prevSprintInput &&
+        (p.dashCharges > 0 || readyViaStamina) &&
+        (!hasResumableDrain || isDoubleTap)
+      ) {
         const dirLen = Math.hypot(p.inputDx, p.inputDy);
         const dashAngle = dirLen > 0.01 ? Math.atan2(p.inputDy, p.inputDx) : p.facing;
         p.dashAngle = dashAngle;
         p.dashRemaining = DASH_DISTANCE;
-        p.dashCharges--;
+        // Spend the bar that was already full first; only reach into a genuinely banked charge if
+        // this one wasn't it.
+        if (!readyViaStamina) p.dashCharges--;
         p.stamina = p.dashCharges > 0 ? 1 : 0; // queues up a fresh full charge to drain next, if any remain
+        p.staminaFullSince = 0; // whatever that bar's "been full this long" timer was is stale now
         effects.push({ type: 'dash', x: p.x, y: p.y, actorId: p.id, angle: dashAngle });
       }
       if (!p.sprintInput && p.prevSprintInput && now - p.sprintPressStartAt < TAP_MAX_MS) {
@@ -618,6 +631,9 @@ export class GameWorld {
       attacker.maxHp = maxHpFor(attacker);
       attacker.hp += attacker.maxHp - oldMax;
     }
+    // Every kill also grants growth progress proportional to the victim's own accumulated size —
+    // even a smaller victim pays off, not just punching up. Stacks on top of the tier inherit above.
+    for (let i = 0; i < victim.growthTier; i++) gainGrowthLevel(attacker);
     while (attacker.swords.length < victim.swords.length) {
       if (!addSword(attacker)) break;
     }
