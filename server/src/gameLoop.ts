@@ -672,7 +672,7 @@ export class GameWorld {
         if (!circlesOverlap(p.x, p.y, r, bonus.x, bonus.y, 20)) continue;
         this.applyBonus(p, bonus);
         this.bonuses.delete(bonus.id);
-        effects.push({ type: 'bonusPickup', x: bonus.x, y: bonus.y, bonusType: bonus.type });
+        effects.push({ type: 'bonusPickup', x: bonus.x, y: bonus.y, bonusType: bonus.type, actorId: p.id });
         // A bonus that disappears into a pickup is replaced right away by one of the same type, so
         // the mix of types on the field stays even instead of drifting as players clear one kind out.
         if (this.bonuses.size < this.maxBonuses) this.spawnBonus(bonus.type);

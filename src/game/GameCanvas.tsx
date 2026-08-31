@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/gameStore';
 import type { BonusType, EffectType, PlayerState, SwordState } from '@/net/protocol';
 import { computeCamera, worldToScreen } from './camera';
 import { hslToHex, lerpColorHex } from './color';
-import { playSfx, type SfxName } from '@/audio/sounds';
+import { playSfx, updateSpinLoop, type SfxName } from '@/audio/sounds';
 
 const GRID_SIZE = 180; // world units between grid lines — makes movement and zoom-out readable
 const BONUS_RADIUS = 22; // world units — matches a player's radius at growth tier 0
@@ -93,6 +93,10 @@ interface Burst {
   stretch?: number;
   /** Renders as a hollow, expanding ring instead of a filled dot — a shockwave rather than a spark. */
   ring?: boolean;
+  /** Anchors this particle to a living player's current position every frame instead of the fixed
+   * spot it was born at — for effects (like the heart pulse) that should ride along with a moving
+   * target rather than being left behind. */
+  followPlayerId?: string;
 }
 
 // Seeded from Date.now() (not 1) so ids stay unique across a dev Fast Refresh remount, which
@@ -198,6 +202,7 @@ export default function GameCanvas() {
 
       const state = useGameStore.getState();
       const lp = state.players.find((p) => p.id === state.playerId) ?? null;
+      updateSpinLoop(lp && lp.alive ? Math.max(0, Math.min(1, lp.swordSpin / 8)) : 0);
       const targetZoom = computeCamera(lp).zoom;
       smoothZoomRef.current = approach(smoothZoomRef.current ?? targetZoom, targetZoom, dtSec, ZOOM_SMOOTH_TAU);
 
@@ -290,6 +295,7 @@ export default function GameCanvas() {
           bornAt: now,
           lifetimeMs: 480,
           ring: true,
+          followPlayerId: e.actorId,
         });
         for (let i = 0; i < 10; i++) {
           const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.7; // mostly upward, wide spread
@@ -753,9 +759,17 @@ export default function GameCanvas() {
       {burstsRef.current.map((b) => {
         const age = Date.now() - b.bornAt;
         const frac = age / b.lifetimeMs;
-        const dist = b.speed * (age / 1000);
-        const wx = b.x + Math.cos(b.angle) * dist;
-        const wy = b.y + Math.sin(b.angle) * dist;
+        const followed = b.followPlayerId ? players.find((pl) => pl.id === b.followPlayerId) : null;
+        let wx: number;
+        let wy: number;
+        if (followed) {
+          wx = followed.x;
+          wy = followed.y;
+        } else {
+          const dist = b.speed * (age / 1000);
+          wx = b.x + Math.cos(b.angle) * dist;
+          wy = b.y + Math.sin(b.angle) * dist;
+        }
         const s = toScreen(wx, wy);
 
         if (b.ring) {

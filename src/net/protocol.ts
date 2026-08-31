@@ -84,7 +84,9 @@ export interface EffectState {
   bonusType?: BonusType;
   /** 'kill': the killer's id — the finishing-blow animation/sound only plays for them.
    * 'playerHit': the attacker's id — whose sword rotation briefly freezes on impact.
-   * 'swordClash': one of the two participants' ids (see otherId for the other). */
+   * 'swordClash': one of the two participants' ids (see otherId for the other).
+   * 'bonusPickup': who picked it up — lets a follow-the-player effect (like the heart pulse) track
+   * them instead of staying pinned to the spot the bonus was picked up at. */
   actorId?: string;
   /** 'swordClash' only: the second participant's id (actorId is the first). */
   otherId?: string;

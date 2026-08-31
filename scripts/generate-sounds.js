@@ -78,6 +78,22 @@ function sweepTone(freqStart, freqEnd, durationSec, { amplitude = 0.4 } = {}) {
   return out;
 }
 
+/** A seamlessly loopable "cutting through the air" whoosh — noise pulsed by a sine that completes
+ * exactly `cycles` full periods across `durationSec`, so it starts and ends at silence and can be
+ * looped back-to-back without a click. Each pulse reads like one pass of a blade/cord through air;
+ * the game speeds `playbackRate` up with actual spin speed so the pulses feel like real rotations. */
+function whooshLoop(durationSec, cycles, amplitude = 0.35) {
+  const n = Math.round(SAMPLE_RATE * durationSec);
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / SAMPLE_RATE;
+    const mod = Math.max(0, Math.sin((2 * Math.PI * cycles * t) / durationSec));
+    const pulse = Math.pow(mod, 2.4);
+    out[i] = (Math.random() * 2 - 1) * amplitude * pulse;
+  }
+  return out;
+}
+
 function mix(...parts) {
   const length = Math.max(...parts.map((p) => p.length));
   const out = new Array(length).fill(0);
@@ -112,3 +128,6 @@ writeWavFile('kill.wav', mix(noiseBurst(0.35, 0.55, 6), sweepTone(360, 60, 0.4, 
 
 // Quick air "whoosh" for a dash: a fast rising sweep plus a short burst of noise for texture.
 writeWavFile('dash.wav', mix(sweepTone(220, 950, 0.18, { amplitude: 0.4 }), noiseBurst(0.16, 0.4, 16)));
+
+// Looping "rope/blade cutting through the air" whoosh for fast sword spin — 3 pulses per loop.
+writeWavFile('spin-loop.wav', whooshLoop(1.0, 3, 0.4));
