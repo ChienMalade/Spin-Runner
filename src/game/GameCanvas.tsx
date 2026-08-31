@@ -65,6 +65,10 @@ interface Burst {
   size: number; // world units
   bornAt: number;
   lifetimeMs: number;
+  /** Renders as an elongated streak along `angle` instead of a dot — the multiplier on `size`. */
+  stretch?: number;
+  /** Renders as a hollow, expanding ring instead of a filled dot — a shockwave rather than a spark. */
+  ring?: boolean;
 }
 
 // Seeded from Date.now() (not 1) so ids stay unique across a dev Fast Refresh remount, which
@@ -250,20 +254,55 @@ export default function GameCanvas() {
       if (e.type === 'bonusPickup') {
         spawnBurst(burstsRef.current, e.x, e.y, 8, e.bonusType ? BONUS_COLORS[e.bonusType] : '#ffffff');
       } else if (e.type === 'dash') {
-        // A short trail flaring out opposite the dash direction, like a burst of speed lines.
-        const back = (e.angle ?? 0) + Math.PI;
-        for (let i = 0; i < 6; i++) {
-          const a = back + (Math.random() - 0.5) * 0.9;
+        // A punchier burst than a plain trail: a shockwave ring at the launch point, a few fading
+        // afterimages of the dasher's own body tracing back along the burst, and a wide fan of
+        // elongated speed-line streaks flaring opposite the dash direction.
+        const forward = e.angle ?? 0;
+        const back = forward + Math.PI;
+        const actor = players.find((pl) => pl.id === e.actorId);
+        const bodyColor = actor ? (actor.isBot ? '#8a8a8a' : hslToHex(actor.hue, 0.65, 0.55)) : '#7dd3fc';
+        const bodyRadius = actor?.radius ?? 22;
+
+        burstsRef.current.push({
+          id: nextParticleId++,
+          x: e.x,
+          y: e.y,
+          angle: 0,
+          speed: 0,
+          color: '#bfe9ff',
+          size: bodyRadius * 0.9,
+          bornAt: now,
+          lifetimeMs: 260,
+          ring: true,
+        });
+
+        for (let i = 1; i <= 3; i++) {
+          burstsRef.current.push({
+            id: nextParticleId++,
+            x: e.x - Math.cos(forward) * bodyRadius * 0.9 * i,
+            y: e.y - Math.sin(forward) * bodyRadius * 0.9 * i,
+            angle: 0,
+            speed: 0,
+            color: bodyColor,
+            size: bodyRadius * (1 - i * 0.12),
+            bornAt: now,
+            lifetimeMs: 220 - i * 30,
+          });
+        }
+
+        for (let i = 0; i < 18; i++) {
+          const a = back + (Math.random() - 0.5) * 1.1;
           burstsRef.current.push({
             id: nextParticleId++,
             x: e.x,
             y: e.y,
             angle: a,
-            speed: 70 + Math.random() * 50,
-            color: '#7dd3fc',
-            size: 5,
+            speed: 130 + Math.random() * 160,
+            color: Math.random() < 0.5 ? '#e0f6ff' : '#7dd3fc',
+            size: 6 + Math.random() * 5,
             bornAt: now,
-            lifetimeMs: 320,
+            lifetimeMs: 260 + Math.random() * 220,
+            stretch: 3 + Math.random() * 3,
           });
         }
       } else {
@@ -479,6 +518,49 @@ export default function GameCanvas() {
         const wx = b.x + Math.cos(b.angle) * dist;
         const wy = b.y + Math.sin(b.angle) * dist;
         const s = toScreen(wx, wy);
+
+        if (b.ring) {
+          const ringR = Math.max(1, b.size * cam.zoom * (1 + frac * 2.2));
+          return (
+            <View
+              key={b.id}
+              style={{
+                position: 'absolute',
+                left: s.x - ringR,
+                top: s.y - ringR,
+                width: ringR * 2,
+                height: ringR * 2,
+                borderRadius: ringR,
+                borderWidth: Math.max(1, 3 * cam.zoom * (1 - frac)),
+                borderColor: b.color,
+                opacity: Math.max(0, 1 - frac),
+              }}
+            />
+          );
+        }
+
+        if (b.stretch) {
+          const len = Math.max(2, b.size * b.stretch * cam.zoom * (1 - frac * 0.3));
+          const w = Math.max(1, b.size * 0.5 * cam.zoom);
+          return (
+            <View key={b.id} style={{ position: 'absolute', left: s.x, top: s.y }}>
+              <View
+                style={{
+                  position: 'absolute',
+                  width: len,
+                  height: w,
+                  marginLeft: -len / 2,
+                  marginTop: -w / 2,
+                  borderRadius: w / 2,
+                  backgroundColor: b.color,
+                  opacity: Math.max(0, 1 - frac),
+                  transform: [{ rotate: `${b.angle}rad` }],
+                }}
+              />
+            </View>
+          );
+        }
+
         const r = Math.max(1, b.size * cam.zoom * (1 - frac * 0.4));
         return (
           <View
