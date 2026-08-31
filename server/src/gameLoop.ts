@@ -332,34 +332,25 @@ export class GameWorld {
       p.vx *= 0.86;
       p.vy *= 0.86;
 
-      // A ready dash charge is a persisted count now (0..maxDashCharges), earned below whenever a
-      // charge's graduation fills or finishes draining — so several can stack up before any get spent.
-      // While a charge is mid-drain (0 < stamina < 1) from an earlier hold, a plain re-press should
-      // just resume draining it, not fire a fresh dash — only a real double-tap (two quick taps in a
-      // row) is allowed to jump ahead and spend a different charge instead.
-      // A graduation that has filled to 1 but hasn't yet finished its STAMINA_FULL_CHARGE_MS hold (so
-      // it still reads as `dashCharges`, not `dashCharges + 1`) is nonetheless visually a full,
-      // ready bar — firing must spend *that* one rather than reaching past it into an already-banked
-      // charge, which used to orphan it (the fill silently jumped to a different bar and reset).
-      const readyViaStamina = p.stamina >= 1;
-      const hasResumableDrain = !readyViaStamina && p.stamina > 0 && p.dashCharges > 0;
+      // A ready dash charge is a persisted count now (0..maxDashCharges). Firing is ALWAYS purely
+      // `dashCharges > 0` — a graduation that's merely filled to 1 but hasn't finished its
+      // STAMINA_FULL_CHARGE_MS hold (still yellow, not yet a real banked charge) never counts as a
+      // dash, no matter how full it looks; it just keeps counting toward actually becoming one.
+      // While a charge is mid-drain (0 < sprintFuel < 1) from an earlier hold, a plain re-press
+      // should just resume draining it, not fire a fresh dash — only a real double-tap (two quick
+      // taps in a row) is allowed to jump ahead and spend a different charge instead. `sprintFuel` is
+      // tracked completely separately from `stamina` (the passive progress-to-a-new-charge bar) so
+      // firing one never corrupts unrelated progress on the other.
+      const hasResumableDrain = p.sprintFuel > 0 && p.sprintFuel < 1 && p.dashCharges > 0;
       const isDoubleTap = now - p.lastBriefTapReleaseAt < DOUBLE_TAP_WINDOW_MS;
       if (p.sprintInput && !p.prevSprintInput) p.sprintPressStartAt = now;
-      if (
-        p.sprintInput &&
-        !p.prevSprintInput &&
-        (p.dashCharges > 0 || readyViaStamina) &&
-        (!hasResumableDrain || isDoubleTap)
-      ) {
+      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0 && (!hasResumableDrain || isDoubleTap)) {
         const dirLen = Math.hypot(p.inputDx, p.inputDy);
         const dashAngle = dirLen > 0.01 ? Math.atan2(p.inputDy, p.inputDx) : p.facing;
         p.dashAngle = dashAngle;
         p.dashRemaining = DASH_DISTANCE;
-        // Spend the bar that was already full first; only reach into a genuinely banked charge if
-        // this one wasn't it.
-        if (!readyViaStamina) p.dashCharges--;
-        p.stamina = p.dashCharges > 0 ? 1 : 0; // queues up a fresh full charge to drain next, if any remain
-        p.staminaFullSince = 0; // whatever that bar's "been full this long" timer was is stale now
+        p.dashCharges--;
+        p.sprintFuel = p.dashCharges > 0 ? 1 : 0; // queues up a fresh full charge to drain next, if any remain
         effects.push({ type: 'dash', x: p.x, y: p.y, actorId: p.id, angle: dashAngle });
       }
       if (!p.sprintInput && p.prevSprintInput && now - p.sprintPressStartAt < TAP_MAX_MS) {
@@ -392,11 +383,12 @@ export class GameWorld {
       if (drainingBanked) {
         // Resumes wherever this charge's fill currently sits — freshly at 1 if a dash (above) just
         // queued it up, or partway down if this is a plain re-press resuming an interrupted drain.
-        p.stamina = Math.max(0, p.stamina - dtSec / sprintDrainSecondsFor(p));
-        if (p.stamina <= 0) {
+        // `stamina` (the passive bar) is untouched here — it keeps building toward a new charge on
+        // its own, completely independent of whichever banked charge is being spent right now.
+        p.sprintFuel = Math.max(0, p.sprintFuel - dtSec / sprintDrainSecondsFor(p));
+        if (p.sprintFuel <= 0) {
           p.dashCharges--;
-          if (p.dashCharges > 0) p.stamina = 1; // still held and charges remain — chain into the next one
-          else p.staminaEmptyAt = now; // truly out now — same empty-lock as the classic path below
+          p.sprintFuel = p.dashCharges > 0 ? 1 : 0; // still held and charges remain — chain into the next one
         }
       } else if (sprinting) {
         const wasPositive = p.stamina > 0;

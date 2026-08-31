@@ -104,6 +104,10 @@ export interface ServerPlayer {
    * allowed to fire a fresh dash while a banked charge is mid-drain; a single press following a long
    * hold's release instead just resumes draining that same charge from wherever it left off. */
   lastBriefTapReleaseAt: number;
+  /** Fill (0..1) of whichever already-banked dash charge is currently being spent as sprint fuel —
+   * tracked entirely separately from `stamina` (the passive progress toward earning a NEW charge) so
+   * spending one can never corrupt unrelated progress on the other. 0 when not actively draining one. */
+  sprintFuel: number;
   stamina: number;
   staminaEmptyAt: number;
   staminaFullSince: number;
@@ -231,6 +235,7 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     prevSprintInput: false,
     sprintPressStartAt: 0,
     lastBriefTapReleaseAt: -Infinity,
+    sprintFuel: 0,
     stamina: 1,
     staminaEmptyAt: 0,
     staminaFullSince: 0,
@@ -273,6 +278,7 @@ export function resetForRespawn(p: ServerPlayer, x: number, y: number) {
   p.prevSprintInput = false;
   p.sprintPressStartAt = 0;
   p.lastBriefTapReleaseAt = -Infinity;
+  p.sprintFuel = 0;
   p.stamina = 1;
   p.staminaEmptyAt = 0;
   p.staminaFullSince = 0;
@@ -428,7 +434,10 @@ export function serialize(p: ServerPlayer): PlayerState {
     facing: p.facing,
     hp: p.hp,
     maxHp: p.maxHp,
-    stamina: p.stamina,
+    // Whichever bar should actually be visible right now: the charge being actively spent as sprint
+    // fuel takes priority, falling back to the passive progress-toward-a-new-charge bar otherwise —
+    // client rendering is unaware of the split and just shows this one value, unchanged from before.
+    stamina: p.sprintFuel > 0 ? p.sprintFuel : p.stamina,
     staminaFullSince: p.staminaFullSince,
     dashCharges: p.dashCharges,
     maxDashCharges: p.maxDashCharges,

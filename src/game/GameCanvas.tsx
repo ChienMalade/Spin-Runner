@@ -424,6 +424,9 @@ export default function GameCanvas() {
 
       {bonuses.map((b) => {
         const s = toScreen(b.x, b.y);
+        // Off-screen bonuses were never visible anyway — skip building their (identical, unseen)
+        // element entirely instead of paying render cost for something nobody sees.
+        if (s.x < -100 || s.x > width + 100 || s.y < -100 || s.y > height + 100) return null;
         const r = Math.max(5, BONUS_RADIUS * cam.zoom);
         const iconSize = r * 1.1;
         return (
@@ -454,6 +457,10 @@ export default function GameCanvas() {
       {players.map((p) => {
         if (!p.alive) return null;
         const center = toScreen(p.x, p.y);
+        // Off-screen players (and everyone's swords/lightning/trails/shield/etc.) were never visible
+        // either — a generous margin covers the largest body, sword reach and effect radius so
+        // nothing that could still be on-screen gets skipped, only genuinely unseen entities.
+        if (center.x < -400 || center.x > width + 400 || center.y < -400 || center.y > height + 400) return null;
         const displayRadius = smoothRadiusRef.current.get(p.id) ?? p.radius;
         const displayOrbit = smoothOrbitRef.current.get(p.id) ?? p.swordOrbitRadius;
         const radius = Math.max(2, displayRadius * cam.zoom);
