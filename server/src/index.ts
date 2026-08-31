@@ -1,15 +1,28 @@
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { ARENA_HEIGHT, ARENA_WIDTH, type ClientMessage, type ServerMessage } from './protocol.js';
 import { ArenaManager, type Arena } from './arenaManager.js';
 
 const PORT = Number(process.env.PORT) || 8787;
 const TICK_HZ = 30;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// `expo export -p web` (run at the repo root as part of the Render build) drops its static bundle
+// in ../../dist relative to this file (server/src -> server -> repo root -> dist).
+const STATIC_DIR = path.join(__dirname, '../../dist');
 
 const manager = new ArenaManager();
-console.log(`Spin-Runner server listening on ws://localhost:${PORT}`);
-console.log(`Arenas: ${manager.arenas.map((a) => a.code).join(', ')}`);
 
-const wss = new WebSocketServer({ port: PORT });
+const app = express();
+app.use(express.static(STATIC_DIR));
+// Catch-all SPA fallback. Express 5's route-pattern wildcard ('*') no longer matches bare paths, so
+// this uses a path-less middleware instead of app.get('*', ...).
+app.use((_req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
 function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
@@ -80,3 +93,8 @@ setInterval(() => {
     }
   }
 }, 1000 / TICK_HZ);
+
+server.listen(PORT, () => {
+  console.log(`Spin-Runner server listening on http://localhost:${PORT}`);
+  console.log(`Arenas: ${manager.arenas.map((a) => a.code).join(', ')}`);
+});

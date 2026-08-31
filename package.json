@@ -23,6 +23,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "build:web": "expo export -p web",
     "generate:sounds": "node scripts/generate-sounds.js"
   },
   "private": true

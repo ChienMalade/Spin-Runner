@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: spin-runner
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx expo export -p web && cd server && npm install
+    startCommand: cd server && npm start
