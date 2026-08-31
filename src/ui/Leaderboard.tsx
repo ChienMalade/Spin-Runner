@@ -47,7 +47,7 @@ export default function Leaderboard() {
             <Text style={styles.name} numberOfLines={1}>
               {entry.name}
             </Text>
-            <Text style={styles.tier}>Palier {entry.growthTier}</Text>
+            <Text style={styles.tier}>Top {i + 1}</Text>
             {i === 0 && <Text style={styles.timer}>{top1Seconds.toFixed(0)}s</Text>}
           </View>
         );

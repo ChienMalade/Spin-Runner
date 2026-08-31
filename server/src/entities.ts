@@ -48,28 +48,31 @@ export const DEV_MAX_DASH_CHARGES = 10;
 export const DEV_MOVE_SPEED_STEP = 30;
 export const DEV_STAMINA_RECHARGE_STEP = 0.5;
 
-// Levels 1..10 climb at the original, familiar pace; levels 10..20 are a second "prestige" stretch
-// that accelerates (quadratically) toward a much stronger level-20 payoff, without disturbing how
-// the first 10 levels already felt. `t` is how far through that second stretch a level is (0..1).
-function prestigeFactor(level: number): number {
-  return Math.max(0, Math.min(1, (level - 10) / 10)) ** 2;
+// Levels 1..10 climb at the original, familiar pace; levels 10..maxLevel are a second "prestige"
+// stretch that accelerates (quadratically) toward a much stronger payoff at maxLevel, without
+// disturbing how the first 10 levels already felt. Parameterized by maxLevel since growth (still
+// capped at 20) and sword-tier/spin (now capped at 15) need the ramp to finish at different levels.
+function prestigeFactor(level: number, maxLevel: number): number {
+  const span = maxLevel - 10;
+  if (span <= 0) return 0;
+  return Math.max(0, Math.min(1, (level - 10) / span)) ** 2;
 }
 
 /** The multiplier sword-tier upgrades grant at a given level: the original 1, 1.5, 2, ..., 5.5 climb
- * through level 10, then keeps accelerating up to roughly 10.5x by level 20. */
+ * through level 10, then keeps accelerating up to roughly 10.45x by level 15 (LEVEL_MAX). */
 export function levelMultiplier(level: number): number {
   const base10 = 1 + 0.5 * 9; // = 5.5, value at level 10
   if (level <= 10) return 1 + 0.5 * (level - 1);
-  return base10 + base10 * 0.9 * prestigeFactor(level);
+  return base10 + base10 * 0.9 * prestigeFactor(level, 15);
 }
 
 /** Same shape as levelMultiplier but steeper from the start (spin should feel like it's climbing
- * toward a faster spin sooner, not just eventually) and keeps accelerating hard through level 20,
- * used only for the spin bonus. */
+ * toward a faster spin sooner, not just eventually) and keeps accelerating hard through level 15
+ * (SPIN_LEVEL_MAX), used only for the spin bonus. */
 export function spinLevelMultiplier(level: number): number {
   const base10 = 1 + 0.45 * 9; // = 5.05, value at level 10 — noticeably faster than the old max already
   if (level <= 10) return 1 + 0.45 * (level - 1);
-  return base10 + base10 * 0.8 * prestigeFactor(level);
+  return base10 + base10 * 0.8 * prestigeFactor(level, 15);
 }
 
 /** Pickups needed to advance FROM this level to the next one — 1 to go from 1→2, 2 from 2→3, etc.,
@@ -130,6 +133,7 @@ export interface ServerPlayer {
   lastTouchingSwordId: number;
   devMoveSpeedOffset: number;
   devStaminaRechargeOffsetSec: number;
+  gold: number;
 }
 
 /** Uniform growth multiplier applied to player radius, sword radius, orbit radius and max HP alike.
@@ -139,7 +143,7 @@ export interface ServerPlayer {
 export function scaleFor(growthTier: number): number {
   const base10 = 1 + 0.5 * 9; // = 5.5, the old level-10 cap
   if (growthTier <= 10) return 1 + 0.5 * (growthTier - 1);
-  return base10 + base10 * prestigeFactor(growthTier); // -> exactly 2x base10 at level 20
+  return base10 + base10 * prestigeFactor(growthTier, 20); // -> exactly 2x base10 at level 20
 }
 
 export function radiusFor(p: ServerPlayer): number {
@@ -254,6 +258,7 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     lastTouchingSwordId: 0,
     devMoveSpeedOffset: 0,
     devStaminaRechargeOffsetSec: 0,
+    gold: 0,
   };
   addSword(p);
   return p;
@@ -357,9 +362,16 @@ export function gainGrowthLevel(p: ServerPlayer) {
   }
 }
 
-/** A "spin" bonus pickup: same escalating-cost leveling as sword tier and growth, capped at LEVEL_MAX. */
+// Once a stat is maxed, further pickups of its type are wasted otherwise — convert them to gold.
+const GOLD_PER_MAXED_PICKUP = 5;
+
+/** A "spin" bonus pickup: same escalating-cost leveling as sword tier and growth, capped at
+ * SPIN_LEVEL_MAX — once maxed, further spin pickups convert to gold instead of doing nothing. */
 export function gainSpinLevel(p: ServerPlayer) {
-  if (p.spinLevel >= SPIN_LEVEL_MAX) return;
+  if (p.spinLevel >= SPIN_LEVEL_MAX) {
+    p.gold += GOLD_PER_MAXED_PICKUP;
+    return;
+  }
   p.spinProgress++;
   if (p.spinProgress >= pickupsToNextLevel(p.spinLevel)) {
     p.spinLevel++;
@@ -387,9 +399,13 @@ export function setSpinLevel(p: ServerPlayer, level: number) {
 }
 
 /** An "upgrade" bonus pickup: same escalating-cost leveling, and sharpens every current sword to
- * the new, higher max HP the moment the tier actually increases. */
+ * the new, higher max HP the moment the tier actually increases. Once maxed (LEVEL_MAX), further
+ * pickups convert to gold instead of doing nothing. */
 export function gainSwordTier(p: ServerPlayer) {
-  if (p.swordTier >= LEVEL_MAX) return;
+  if (p.swordTier >= LEVEL_MAX) {
+    p.gold += GOLD_PER_MAXED_PICKUP;
+    return;
+  }
   p.swordTierProgress++;
   if (p.swordTierProgress >= pickupsToNextLevel(p.swordTier)) {
     p.swordTier++;
@@ -435,5 +451,6 @@ export function serialize(p: ServerPlayer): PlayerState {
     hue: p.hue,
     devMoveSpeedOffset: p.devMoveSpeedOffset,
     devStaminaRechargeOffsetSec: p.devStaminaRechargeOffsetSec,
+    gold: p.gold,
   };
 }

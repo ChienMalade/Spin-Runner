@@ -45,6 +45,12 @@ export default function LevelPanel() {
       <Row icon="👻" level={player.growthTier} progress={player.growthProgress} levelMax={GROWTH_LEVEL_MAX} />
       <Row icon="🌀" level={player.spinLevel} progress={player.spinProgress} levelMax={SPIN_LEVEL_MAX} />
       <Row icon="⭐" level={player.swordTier} progress={player.swordTierProgress} levelMax={LEVEL_MAX} />
+      {player.gold > 0 && (
+        <View style={styles.row}>
+          <Text style={styles.icon}>🪙</Text>
+          <Text style={styles.goldText}>{player.gold}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -65,4 +71,5 @@ const styles = StyleSheet.create({
   icon: { fontSize: 20, marginRight: 8 },
   levelText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   progressText: { color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '600' },
+  goldText: { color: '#ffd76a', fontSize: 15, fontWeight: '800' },
 });

@@ -38,8 +38,8 @@ const SPIN_TRAIL_COLOR = '#bfe9ff';
  * tiny seeded PRNG keyed on the sword's own id keeps the shape fixed across renders instead of
  * reshuffling into random noise every frame. */
 function lightningPath(len: number, w: number, tier: number, seedId: number): { x: number; y: number }[] {
-  const segments = 3 + Math.floor(Math.min(tier, 20) / 3); // 3..9 jags across the whole level range
-  const amp = w * (0.55 + Math.min(tier, 20) * 0.03);
+  const segments = 3 + Math.floor(Math.min(tier, 15) / 3); // 3..8 jags across the whole level range
+  const amp = w * (0.55 + Math.min(tier, 15) * 0.03);
   let s = (seedId * 9301 + 49297) % 233280;
   const rand = () => {
     s = (s * 9301 + 49297) % 233280;
