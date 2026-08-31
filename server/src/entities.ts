@@ -22,12 +22,13 @@ export const SWORD_MAX_HP = 45;
 export const SWORD_DAMAGE_TO_SWORD = 15;
 export const SWORD_DAMAGE_TO_PLAYER = 12;
 export const KNOCKBACK_IMPULSE = 260;
-export const SHIELD_DURATION_MS = 3000; // flat — the "shield" bonus no longer stacks either
+export const SHIELD_DURATION_MS = 5000; // flat — the "shield" bonus no longer stacks either
 export const SWORD_SIZE_BUFF_MS = 8000;
 export const BOT_RESPAWN_MS = 3000;
 export const SPRINT_MULTIPLIER = 2; // stacks multiplicatively with the "speed" buff, not additively
 const SPRINT_RATE_MULTIPLIER = 1.5; // balance pass: both drain and recharge run 1.5x faster than baseline
-export const SPRINT_DRAIN_SECONDS = 1 / SPRINT_RATE_MULTIPLIER; // full stamina bar drained after this long sprinting
+// +0.5s on top of the 1.5x-sped-up base — each graduation now lasts a bit longer under sustained sprint.
+export const SPRINT_DRAIN_SECONDS = 1 / SPRINT_RATE_MULTIPLIER + 0.5; // full stamina bar drained after this long sprinting
 export const STAMINA_RECHARGE_SECONDS = 5 / SPRINT_RATE_MULTIPLIER; // full stamina bar refilled after this long not sprinting
 export const STAMINA_EMPTY_LOCK_MS = 1000; // stays empty this long after hitting 0 before it can recharge
 export const STAMINA_FULL_CHARGE_MS = 3000; // full bar needs to stay full this long to become "charged"
@@ -47,22 +48,35 @@ export const DEV_MAX_DASH_CHARGES = 10;
 export const DEV_MOVE_SPEED_STEP = 30;
 export const DEV_STAMINA_RECHARGE_STEP = 0.5;
 
-/** The multiplier a level-based bonus (sword tier, growth) grants at a given level: 1, 1.5, 2, 2.5,
- * 3, 3.5, 4 for levels 1..7. */
+// Levels 1..10 climb at the original, familiar pace; levels 10..20 are a second "prestige" stretch
+// that accelerates (quadratically) toward a much stronger level-20 payoff, without disturbing how
+// the first 10 levels already felt. `t` is how far through that second stretch a level is (0..1).
+function prestigeFactor(level: number): number {
+  return Math.max(0, Math.min(1, (level - 10) / 10)) ** 2;
+}
+
+/** The multiplier sword-tier upgrades grant at a given level: the original 1, 1.5, 2, ..., 5.5 climb
+ * through level 10, then keeps accelerating up to roughly 10.5x by level 20. */
 export function levelMultiplier(level: number): number {
-  return 1 + 0.5 * (level - 1);
+  const base10 = 1 + 0.5 * 9; // = 5.5, value at level 10
+  if (level <= 10) return 1 + 0.5 * (level - 1);
+  return base10 + base10 * 0.9 * prestigeFactor(level);
 }
 
-/** Same idea as levelMultiplier but climbs more gently — used only for the spin bonus, so a
- * maxed-out level 7 doesn't spin fast enough to be a visual headache. */
+/** Same shape as levelMultiplier but steeper from the start (spin should feel like it's climbing
+ * toward a faster spin sooner, not just eventually) and keeps accelerating hard through level 20,
+ * used only for the spin bonus. */
 export function spinLevelMultiplier(level: number): number {
-  return 1 + 0.3 * (level - 1);
+  const base10 = 1 + 0.45 * 9; // = 5.05, value at level 10 — noticeably faster than the old max already
+  if (level <= 10) return 1 + 0.45 * (level - 1);
+  return base10 + base10 * 0.8 * prestigeFactor(level);
 }
 
-/** Pickups needed to advance FROM this level to the next one — 1 to go from 1→2, 2 from 2→3, etc.
- * Mirrors the sword-count, spin and sword-tier bonuses alike. */
+/** Pickups needed to advance FROM this level to the next one — 1 to go from 1→2, 2 from 2→3, etc.,
+ * same as before through level 10. Past that the cost stays flat at the 9→10 cost (9) all the way to
+ * level 20, so the grind doesn't keep getting steeper on top of the stats already accelerating. */
 export function pickupsToNextLevel(level: number): number {
-  return level;
+  return level < 10 ? level : 9;
 }
 
 export interface ServerPlayer {
@@ -79,6 +93,14 @@ export interface ServerPlayer {
   inputDy: number;
   sprintInput: boolean;
   prevSprintInput: boolean;
+  /** When the current/last sprint press started — used at release time to tell a brief tap from a
+   * sustained hold. */
+  sprintPressStartAt: number;
+  /** Timestamp of the last RELEASE that followed a brief tap (not a sustained hold). A press arriving
+   * soon after one of these — i.e. a real double-tap, two quick taps in a row — is the only thing
+   * allowed to fire a fresh dash while a banked charge is mid-drain; a single press following a long
+   * hold's release instead just resumes draining that same charge from wherever it left off. */
+  lastBriefTapReleaseAt: number;
   stamina: number;
   staminaEmptyAt: number;
   staminaFullSince: number;
@@ -110,11 +132,14 @@ export interface ServerPlayer {
   devStaminaRechargeOffsetSec: number;
 }
 
-/** Uniform growth multiplier applied to player radius, sword radius, orbit radius and max HP alike
- * — growth is a leveled bonus like the others (1..LEVEL_MAX), so it shares the same 1, 1.5, 2,
- * 2.5, 3, 3.5, 4 progression. */
+/** Uniform growth multiplier applied to player radius, sword radius, orbit radius and max HP alike.
+ * Climbs the original 1..5.5 curve through level 10 (unchanged from before), then accelerates so
+ * level 20 lands at exactly 2x the old level-10 cap (11x) — bigger players keep getting noticeably
+ * bigger per level all the way to the new max instead of leveling off. */
 export function scaleFor(growthTier: number): number {
-  return levelMultiplier(growthTier);
+  const base10 = 1 + 0.5 * 9; // = 5.5, the old level-10 cap
+  if (growthTier <= 10) return 1 + 0.5 * (growthTier - 1);
+  return base10 + base10 * prestigeFactor(growthTier); // -> exactly 2x base10 at level 20
 }
 
 export function radiusFor(p: ServerPlayer): number {
@@ -200,6 +225,8 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     inputDy: 0,
     sprintInput: false,
     prevSprintInput: false,
+    sprintPressStartAt: 0,
+    lastBriefTapReleaseAt: -Infinity,
     stamina: 1,
     staminaEmptyAt: 0,
     staminaFullSince: 0,
@@ -239,6 +266,8 @@ export function resetForRespawn(p: ServerPlayer, x: number, y: number) {
   p.vy = 0;
   p.sprintInput = false;
   p.prevSprintInput = false;
+  p.sprintPressStartAt = 0;
+  p.lastBriefTapReleaseAt = -Infinity;
   p.stamina = 1;
   p.staminaEmptyAt = 0;
   p.staminaFullSince = 0;

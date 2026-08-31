@@ -15,7 +15,9 @@ function Row({
   levelMax: number;
 }) {
   const maxed = level >= levelMax;
-  const needed = level; // pickups needed to advance from `level` to `level + 1`
+  // Pickups needed to advance from `level` to `level + 1` — mirrors server/src/entities.ts's
+  // pickupsToNextLevel: same pace through level 9, then flat at the 9→10 cost up to level 20.
+  const needed = level < 10 ? level : 9;
   return (
     <View style={styles.row}>
       <Text style={styles.icon}>{icon}</Text>

@@ -22,7 +22,7 @@ export default function DevToggle() {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    top: 92,
+    top: 140,
     right: 16,
     width: 40,
     height: 40,

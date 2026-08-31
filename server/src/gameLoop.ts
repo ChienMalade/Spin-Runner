@@ -64,6 +64,11 @@ export interface BonusEntity {
 
 const SWORD_HIT_COOLDOWN_MS = 220;
 const PLAYER_HIT_COOLDOWN_MS = 350;
+// A press is a "tap" rather than a hold if released within this long.
+const TAP_MAX_MS = 200;
+// Two taps landing within this window of each other count as a deliberate double-tap — the only
+// thing allowed to interrupt a mid-drain banked charge and fire a fresh dash instead of resuming it.
+const DOUBLE_TAP_WINDOW_MS = 280;
 const SPAWN_MARGIN = 200;
 const SAFE_SPAWN_RADIUS = 260;
 const SAFE_SPAWN_ATTEMPTS = 40;
@@ -91,29 +96,10 @@ function bonusDensityFor(level: number): { maxBonuses: number; intervalMs: numbe
   return { maxBonuses: level * 15, intervalMs: Math.max(150, 1400 - level * 120) };
 }
 
-/** The arena is diced into this many cells per axis; bonus spawns cycle through a shuffled order
- * of cells so they end up spread evenly across the map instead of clustering by chance. */
-const BONUS_GRID_CELLS = 8;
-
-const BONUS_WEIGHTS: { type: BonusType; weight: number }[] = [
-  { type: 'sword', weight: 2 },
-  { type: 'spin', weight: 2 },
-  { type: 'speed', weight: 2 },
-  { type: 'upgrade', weight: 2 },
-  { type: 'soul', weight: 4 },
-  { type: 'heart', weight: 2 },
-  { type: 'shield', weight: 1 },
-];
-
-function pickBonusType(): BonusType {
-  const total = BONUS_WEIGHTS.reduce((s, w) => s + w.weight, 0);
-  let r = Math.random() * total;
-  for (const w of BONUS_WEIGHTS) {
-    if (r < w.weight) return w.type;
-    r -= w.weight;
-  }
-  return 'soul';
-}
+// Every bonus type is kept in equal supply — no more weighting one type over another.
+const BONUS_TYPES: BonusType[] = ['sword', 'spin', 'speed', 'upgrade', 'soul', 'heart', 'shield'];
+// How many candidate spots a spawn considers before picking the least-crowded one.
+const BONUS_PLACEMENT_CANDIDATES = 8;
 
 let nextBonusId = 1;
 let nextEffectSpark = 0;
@@ -126,7 +112,6 @@ export class GameWorld {
   private lastBonusSpawn = 0;
   private swordHitCooldown = new Map<string, number>();
   private lastCooldownSweep = 0;
-  private bonusCellQueue: number[] = [];
   private bonusDensityLevel = DEFAULT_BONUS_DENSITY_LEVEL;
   private maxBonuses = bonusDensityFor(DEFAULT_BONUS_DENSITY_LEVEL).maxBonuses;
   private bonusSpawnIntervalMs = bonusDensityFor(DEFAULT_BONUS_DENSITY_LEVEL).intervalMs;
@@ -238,23 +223,49 @@ export class GameWorld {
     return this.randomSpawn();
   }
 
-  /** Cycles through a shuffled, once-each order of grid cells so bonus spawns spread evenly across
-   * the arena over time instead of clustering wherever pure randomness happens to favor. */
-  private nextBonusCellSpawn(): [number, number] {
-    if (this.bonusCellQueue.length === 0) {
-      const total = BONUS_GRID_CELLS * BONUS_GRID_CELLS;
-      this.bonusCellQueue = Array.from({ length: total }, (_, i) => i);
-      for (let i = this.bonusCellQueue.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.bonusCellQueue[i], this.bonusCellQueue[j]] = [this.bonusCellQueue[j], this.bonusCellQueue[i]];
+  /** Every bonus type is kept at an equal target share of the current cap — whichever type is
+   * furthest under its share spawns next (ties broken at random so it's not perfectly predictable). */
+  private pickBonusType(): BonusType {
+    const target = this.maxBonuses / BONUS_TYPES.length;
+    const counts = new Map<BonusType, number>(BONUS_TYPES.map((t) => [t, 0]));
+    for (const b of this.bonuses.values()) counts.set(b.type, (counts.get(b.type) ?? 0) + 1);
+
+    let best: BonusType[] = [];
+    let bestDeficit = -Infinity;
+    for (const t of BONUS_TYPES) {
+      const deficit = target - (counts.get(t) ?? 0);
+      if (deficit > bestDeficit) {
+        bestDeficit = deficit;
+        best = [t];
+      } else if (deficit === bestDeficit) {
+        best.push(t);
       }
     }
-    const cellIndex = this.bonusCellQueue.pop()!;
-    const cellX = cellIndex % BONUS_GRID_CELLS;
-    const cellY = Math.floor(cellIndex / BONUS_GRID_CELLS);
-    const cellW = (ARENA_WIDTH - SPAWN_MARGIN * 2) / BONUS_GRID_CELLS;
-    const cellH = (ARENA_HEIGHT - SPAWN_MARGIN * 2) / BONUS_GRID_CELLS;
-    return [SPAWN_MARGIN + cellX * cellW + Math.random() * cellW, SPAWN_MARGIN + cellY * cellH + Math.random() * cellH];
+    return best[Math.floor(Math.random() * best.length)];
+  }
+
+  /** Tries a handful of random spots and keeps whichever is farthest from any existing bonus —
+   * weighted even more heavily against bonuses of the same type — so spawns spread out instead of
+   * clustering, and a type doesn't pile up in one corner of the map. */
+  private pickBonusPosition(type: BonusType): [number, number] {
+    let best: [number, number] = this.randomSpawn();
+    let bestScore = -Infinity;
+    for (let i = 0; i < BONUS_PLACEMENT_CANDIDATES; i++) {
+      const [x, y] = this.randomSpawn();
+      let nearestAny = Infinity;
+      let nearestSame = Infinity;
+      for (const b of this.bonuses.values()) {
+        const d = Math.hypot(b.x - x, b.y - y);
+        if (d < nearestAny) nearestAny = d;
+        if (b.type === type && d < nearestSame) nearestSame = d;
+      }
+      const score = Math.min(nearestAny, 4000) + Math.min(nearestSame, 4000) * 1.5;
+      if (score > bestScore) {
+        bestScore = score;
+        best = [x, y];
+      }
+    }
+    return best;
   }
 
   /** Returns null if the arena is already at MAX_TOTAL_PLAYERS — never trust the client to have
@@ -321,19 +332,34 @@ export class GameWorld {
       p.vx *= 0.86;
       p.vy *= 0.86;
 
-      const sprinting = p.sprintInput && p.stamina > 0;
-
-      // A ready dash charge is a persisted count now (0..maxDashCharges), earned below whenever the
-      // bar fills and stays full — so several can stack up before any of them get spent.
-      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0) {
+      // A ready dash charge is a persisted count now (0..maxDashCharges), earned below whenever a
+      // charge's graduation fills or finishes draining — so several can stack up before any get spent.
+      // While a charge is mid-drain (0 < stamina < 1) from an earlier hold, a plain re-press should
+      // just resume draining it, not fire a fresh dash — only a real double-tap (two quick taps in a
+      // row) is allowed to jump ahead and spend a different charge instead.
+      const hasResumableDrain = p.stamina > 0 && p.stamina < 1 && p.dashCharges > 0;
+      const isDoubleTap = now - p.lastBriefTapReleaseAt < DOUBLE_TAP_WINDOW_MS;
+      if (p.sprintInput && !p.prevSprintInput) p.sprintPressStartAt = now;
+      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0 && (!hasResumableDrain || isDoubleTap)) {
         const dirLen = Math.hypot(p.inputDx, p.inputDy);
         const dashAngle = dirLen > 0.01 ? Math.atan2(p.inputDy, p.inputDx) : p.facing;
         p.dashAngle = dashAngle;
         p.dashRemaining = DASH_DISTANCE;
         p.dashCharges--;
+        p.stamina = p.dashCharges > 0 ? 1 : 0; // queues up a fresh full charge to drain next, if any remain
         effects.push({ type: 'dash', x: p.x, y: p.y, actorId: p.id, angle: dashAngle });
       }
+      if (!p.sprintInput && p.prevSprintInput && now - p.sprintPressStartAt < TAP_MAX_MS) {
+        p.lastBriefTapReleaseAt = now;
+      }
       p.prevSprintInput = p.sprintInput;
+
+      // Holding sprint first spends down any already-banked charges — one at a time, chaining
+      // through the stack — before falling back to draining the not-yet-earned one. Otherwise
+      // holding sprint would go dead the moment charges are stacked up, since a stacked player has
+      // nothing left in the classic bar to burn.
+      const drainingBanked = p.sprintInput && p.dashCharges > 0;
+      const sprinting = p.sprintInput && (drainingBanked || p.stamina > 0);
 
       if (p.dashRemaining > 0) {
         // A charged dash locks in its direction and always covers exactly DASH_DISTANCE, ignoring
@@ -350,7 +376,16 @@ export class GameWorld {
           p.facing = Math.atan2(p.inputDy, p.inputDx);
         }
       }
-      if (sprinting) {
+      if (drainingBanked) {
+        // Resumes wherever this charge's fill currently sits — freshly at 1 if a dash (above) just
+        // queued it up, or partway down if this is a plain re-press resuming an interrupted drain.
+        p.stamina = Math.max(0, p.stamina - dtSec / sprintDrainSecondsFor(p));
+        if (p.stamina <= 0) {
+          p.dashCharges--;
+          if (p.dashCharges > 0) p.stamina = 1; // still held and charges remain — chain into the next one
+          else p.staminaEmptyAt = now; // truly out now — same empty-lock as the classic path below
+        }
+      } else if (sprinting) {
         const wasPositive = p.stamina > 0;
         p.stamina = Math.max(0, p.stamina - dtSec / sprintDrainSecondsFor(p));
         if (wasPositive && p.stamina <= 0) p.staminaEmptyAt = now;
@@ -612,13 +647,20 @@ export class GameWorld {
     }
   }
 
+  /** Tops the field up toward the density cap — used for the initial fill and after a density
+   * change. Steady-state replacement (a picked-up bonus respawning) happens immediately in
+   * resolvePickups instead of waiting on this timer. */
   private spawnBonuses(now: number) {
     if (now - this.lastBonusSpawn < this.bonusSpawnIntervalMs) return;
     if (this.bonuses.size >= this.maxBonuses) return;
     this.lastBonusSpawn = now;
-    const type = pickBonusType();
+    const type = this.pickBonusType();
+    this.spawnBonus(type);
+  }
+
+  private spawnBonus(type: BonusType) {
     const id = `b-${nextBonusId++}`;
-    const [x, y] = this.nextBonusCellSpawn();
+    const [x, y] = this.pickBonusPosition(type);
     this.bonuses.set(id, { id, type, x, y });
   }
 
@@ -631,6 +673,9 @@ export class GameWorld {
         this.applyBonus(p, bonus);
         this.bonuses.delete(bonus.id);
         effects.push({ type: 'bonusPickup', x: bonus.x, y: bonus.y, bonusType: bonus.type });
+        // A bonus that disappears into a pickup is replaced right away by one of the same type, so
+        // the mix of types on the field stays even instead of drifting as players clear one kind out.
+        if (this.bonuses.size < this.maxBonuses) this.spawnBonus(bonus.type);
       }
     }
   }

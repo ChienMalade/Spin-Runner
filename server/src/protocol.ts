@@ -6,10 +6,10 @@ export const ARENA_WIDTH = 6000;
 export const ARENA_HEIGHT = 6000;
 
 export const SLOW_FACTOR = 0.09; // sword spin slow-down divisor per growth tier
-export const MAX_SWORDS = 10;
-export const LEVEL_MAX = 7; // sword-tier bonus levels 1..7
-export const GROWTH_LEVEL_MAX = 10; // growth (size) levels 1..10
-export const SPIN_LEVEL_MAX = 10; // spin bonus levels 1..10
+export const MAX_SWORDS = 20; // flat cap regardless of size — reachable at any growth tier
+export const LEVEL_MAX = 20; // sword-tier bonus levels 1..20
+export const GROWTH_LEVEL_MAX = 20; // growth (size) levels 1..20
+export const SPIN_LEVEL_MAX = 20; // spin bonus levels 1..20
 // Both bars are graduated in fixed-size notches, and growing adds more notches to each.
 export const HP_PER_GROWTH_LEVEL = 50; // one HP-bar notch's worth of max HP granted per growth level
 export const SPRINT_SECONDS_PER_GRADUATION = 0.2; // one stamina-bar notch's worth of sprint time

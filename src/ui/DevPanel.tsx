@@ -70,7 +70,7 @@ export default function DevPanel() {
 
   return (
     <View style={[styles.wrap, { maxHeight }]}>
-      <Text style={styles.title}>Mode développeur</Text>
+      <Text style={styles.title}>Dev</Text>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
       <Stepper
         label="Épées"

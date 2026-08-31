@@ -16,7 +16,7 @@ export default function SettingsToggle() {
 const styles = StyleSheet.create({
   button: {
     position: 'absolute',
-    top: 140,
+    top: 92,
     right: 16,
     width: 40,
     height: 40,

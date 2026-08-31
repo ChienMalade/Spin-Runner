@@ -12,7 +12,7 @@ import DevToggle from '@/ui/DevToggle';
 import DevPanel from '@/ui/DevPanel';
 import SettingsToggle from '@/ui/SettingsToggle';
 import SettingsPanel from '@/ui/SettingsPanel';
-import SprintZone from '@/ui/SprintZone';
+import SprintButton from '@/ui/SprintButton';
 import Lobby from '@/ui/Lobby';
 import Leaderboard from '@/ui/Leaderboard';
 import ArenaBadge from '@/ui/ArenaBadge';
@@ -57,7 +57,7 @@ export default function GameRoot() {
         pointerEvents="box-none"
         {...({ dataSet: { hud: 'true' } } as object)}
       >
-        <SprintZone />
+        <SprintButton />
         <HealthBar />
         <BuffTimers />
         <LevelPanel />
