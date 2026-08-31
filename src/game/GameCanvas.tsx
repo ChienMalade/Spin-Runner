@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/gameStore';
 import type { BonusType, EffectType, PlayerState, SwordState } from '@/net/protocol';
 import { computeCamera, worldToScreen } from './camera';
 import { hslToHex, lerpColorHex } from './color';
-import { playSfx, updateSpinLoop, type SfxName } from '@/audio/sounds';
+import { playSfx, type SfxName } from '@/audio/sounds';
 
 const GRID_SIZE = 180; // world units between grid lines — makes movement and zoom-out readable
 const BONUS_RADIUS = 22; // world units — matches a player's radius at growth tier 0
@@ -202,7 +202,6 @@ export default function GameCanvas() {
 
       const state = useGameStore.getState();
       const lp = state.players.find((p) => p.id === state.playerId) ?? null;
-      updateSpinLoop(lp && lp.alive ? Math.max(0, Math.min(1, lp.swordSpin / 8)) : 0);
       const targetZoom = computeCamera(lp).zoom;
       smoothZoomRef.current = approach(smoothZoomRef.current ?? targetZoom, targetZoom, dtSec, ZOOM_SMOOTH_TAU);
 
