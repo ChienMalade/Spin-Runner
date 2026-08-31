@@ -28,9 +28,23 @@ function send(ws: WebSocket, msg: ServerMessage) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 }
 
-wss.on('connection', (ws) => {
+// A dropped connection (phone locks, wifi dies, laptop sleeps) doesn't always deliver a clean close
+// handshake, especially through a proxy — left unchecked, that socket (and its player) never gets
+// cleaned up and just accumulates forever. Standard fix: ping everyone periodically and terminate
+// whoever didn't pong back since the last check, which forces their 'close' handler to fire.
+const HEARTBEAT_INTERVAL_MS = 30000;
+interface HeartbeatWebSocket extends WebSocket {
+  isAlive?: boolean;
+}
+
+wss.on('connection', (ws: HeartbeatWebSocket) => {
   let playerId: string | null = null;
   let arena: Arena | null = null;
+
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', (raw) => {
     let msg: ClientMessage;
@@ -74,6 +88,17 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
+setInterval(() => {
+  for (const client of wss.clients as Set<HeartbeatWebSocket>) {
+    if (client.isAlive === false) {
+      client.terminate();
+      continue;
+    }
+    client.isAlive = false;
+    client.ping();
+  }
+}, HEARTBEAT_INTERVAL_MS);
 
 let lastTime = Date.now();
 setInterval(() => {
