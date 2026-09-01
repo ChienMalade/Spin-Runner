@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import { HP_PER_GROWTH_LEVEL } from '@/net/protocol';
 
@@ -43,10 +43,13 @@ export default function HealthBar() {
   const now = Date.now();
   const hpFrac = Math.max(0, player.hp / player.maxHp);
   const hpNotches = Math.max(1, Math.round(player.maxHp / HP_PER_GROWTH_LEVEL));
+  const hpCritical = hpFrac > 0 && hpFrac <= 0.3;
+  const hpCriticalBlinkOn = hpCritical && Math.floor(now / 260) % 2 === 0;
 
   const maxDash = Math.max(1, player.maxDashCharges);
   const dashCharges = player.dashCharges;
   const staminaFrac = Math.max(0, Math.min(1, player.stamina));
+  const allDashReady = dashCharges === maxDash;
 
   if (prevChargesRef.current != null && prevChargesRef.current !== dashCharges) {
     if (dashCharges > prevChargesRef.current) {
@@ -77,14 +80,24 @@ export default function HealthBar() {
 
   return (
     <View style={styles.wrap} pointerEvents="none">
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${hpFrac * 100}%`, backgroundColor: '#ff5d73' }]} />
-        {shielded && (
-          <View style={[styles.overlay, { opacity: shieldBlink, backgroundColor: '#bfe9ff' }]} />
-        )}
-        <Graduations count={hpNotches} />
-      </View>
-      <View style={[styles.track, styles.staminaTrack]}>
+      <View style={styles.panel}>
+        <View style={styles.row}>
+          <Text style={styles.rowIcon}>❤️</Text>
+          <View style={[styles.track, styles.hpTrack, hpCritical && hpCriticalBlinkOn && styles.trackDanger]}>
+            <View style={[styles.fill, { width: `${hpFrac * 100}%`, backgroundColor: '#ff5d73' }]} />
+            <View style={styles.gloss} />
+            {shielded && (
+              <View style={[styles.overlay, { opacity: shieldBlink, backgroundColor: '#bfe9ff' }]} />
+            )}
+            <Graduations count={hpNotches} />
+            <Text style={styles.hpLabel}>
+              {Math.ceil(player.hp)} / {player.maxHp}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.rowIcon}>⚡</Text>
+          <View style={[styles.track, styles.staminaTrack, allDashReady && styles.trackPowered]}>
         {Array.from({ length: maxDash }).map((_, i) => {
           const ready = i < dashCharges;
           const charging = i === dashCharges;
@@ -110,25 +123,60 @@ export default function HealthBar() {
               )}
             </View>
           );
-        })}
-        <Graduations count={maxDash} />
+            })}
+            <Graduations count={maxDash} />
+          </View>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', top: 48, left: 20, right: 286 },
+  wrap: { position: 'absolute', top: 20, left: 20, right: 300 },
+  panel: {
+    backgroundColor: 'rgba(8,12,20,0.68)',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.25)',
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    gap: 6,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowIcon: { fontSize: 15, width: 18, textAlign: 'center' },
   track: {
+    flex: 1,
     height: 12,
     borderRadius: 6,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
   },
-  staminaTrack: { height: 7, marginTop: 4 },
+  hpTrack: { height: 18, borderRadius: 9 },
+  trackDanger: { borderColor: '#ff5d73', borderWidth: 2 },
+  trackPowered: { borderColor: '#ffd76a', borderWidth: 1.5 },
+  staminaTrack: { height: 8, marginTop: 4 },
   fill: { height: '100%' },
+  gloss: { position: 'absolute', top: 0, left: 0, right: 0, height: '45%', backgroundColor: 'rgba(255,255,255,0.14)' },
+  hpLabel: {
+    position: 'absolute',
+    width: '100%',
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0,0,0,0.85)',
+    textShadowRadius: 3,
+    textShadowOffset: { width: 0, height: 1 },
+  },
   segment: { position: 'absolute', top: 0, height: '100%' },
   segFill: { height: '100%' },
   overlay: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' },

@@ -7,6 +7,12 @@ import { hslToHex, lerpColorHex } from './color';
 import { playSfx, type SfxName } from '@/audio/sounds';
 
 const GRID_SIZE = 180; // world units between grid lines — makes movement and zoom-out readable
+const MAJOR_GRID_EVERY = 5; // every 5th line is bold — a coarser ruler so scale reads at a glance
+const CHECKER_A = '#121722';
+const CHECKER_B = '#1c2536';
+const GRID_MINOR_COLOR = 'rgba(255,255,255,0.055)';
+const GRID_MAJOR_COLOR = 'rgba(125,211,252,0.16)';
+const WALL_COLOR = '56,189,248'; // arena boundary glow, rgb triplet reused across the ring layers
 const BONUS_RADIUS = 22; // world units — matches a player's radius at growth tier 0
 
 const BONUS_COLORS: Record<BonusType, string> = {
@@ -380,6 +386,9 @@ export default function GameCanvas() {
   const arenaTL = arena ? toScreen(0, 0) : { x: 0, y: 0 };
   const arenaBR = arena ? toScreen(arena.width, arena.height) : { x: width, y: height };
 
+  // Checkerboard floor tiles (one per grid cell, alternating shade) so the grid reads as a ruler
+  // players can eyeball their own size against, not just a texture.
+  const checkerTiles: { key: string; style: object }[] = [];
   const gridLines: { key: string; style: object }[] = [];
   if (arena) {
     const worldLeft = Math.max(0, cam.x - width / 2 / cam.zoom);
@@ -387,18 +396,62 @@ export default function GameCanvas() {
     const worldTop = Math.max(0, cam.y - height / 2 / cam.zoom);
     const worldBottom = Math.min(arena.height, cam.y + height / 2 / cam.zoom);
 
-    for (let gx = Math.floor(worldLeft / GRID_SIZE) * GRID_SIZE; gx <= worldRight; gx += GRID_SIZE) {
+    const startCol = Math.floor(worldLeft / GRID_SIZE);
+    const endCol = Math.ceil(worldRight / GRID_SIZE);
+    const startRow = Math.floor(worldTop / GRID_SIZE);
+    const endRow = Math.ceil(worldBottom / GRID_SIZE);
+
+    for (let row = startRow; row < endRow; row++) {
+      for (let col = startCol; col < endCol; col++) {
+        const tl = toScreen(col * GRID_SIZE, row * GRID_SIZE);
+        const br = toScreen((col + 1) * GRID_SIZE, (row + 1) * GRID_SIZE);
+        const left = Math.max(tl.x, arenaTL.x);
+        const top = Math.max(tl.y, arenaTL.y);
+        const w = Math.min(br.x, arenaBR.x) - left;
+        const h = Math.min(br.y, arenaBR.y) - top;
+        if (w <= 0 || h <= 0) continue;
+        checkerTiles.push({
+          key: `c${col}_${row}`,
+          style: {
+            position: 'absolute',
+            left,
+            top,
+            width: w,
+            height: h,
+            backgroundColor: (col + row) % 2 === 0 ? CHECKER_A : CHECKER_B,
+          },
+        });
+      }
+    }
+
+    for (let gx = startCol * GRID_SIZE; gx <= worldRight; gx += GRID_SIZE) {
+      const major = Math.round(gx / GRID_SIZE) % MAJOR_GRID_EVERY === 0;
       const s = toScreen(gx, 0);
       gridLines.push({
         key: `v${gx}`,
-        style: { position: 'absolute', left: s.x, top: arenaTL.y, width: 1, height: arenaBR.y - arenaTL.y },
+        style: {
+          position: 'absolute',
+          left: s.x,
+          top: arenaTL.y,
+          width: major ? 2 : 1,
+          height: arenaBR.y - arenaTL.y,
+          backgroundColor: major ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
+        },
       });
     }
-    for (let gy = Math.floor(worldTop / GRID_SIZE) * GRID_SIZE; gy <= worldBottom; gy += GRID_SIZE) {
+    for (let gy = startRow * GRID_SIZE; gy <= worldBottom; gy += GRID_SIZE) {
+      const major = Math.round(gy / GRID_SIZE) % MAJOR_GRID_EVERY === 0;
       const s = toScreen(0, gy);
       gridLines.push({
         key: `h${gy}`,
-        style: { position: 'absolute', left: arenaTL.x, top: s.y, width: arenaBR.x - arenaTL.x, height: 1 },
+        style: {
+          position: 'absolute',
+          left: arenaTL.x,
+          top: s.y,
+          width: arenaBR.x - arenaTL.x,
+          height: major ? 2 : 1,
+          backgroundColor: major ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
+        },
       });
     }
   }
@@ -413,14 +466,35 @@ export default function GameCanvas() {
             top: arenaTL.y,
             width: arenaBR.x - arenaTL.x,
             height: arenaBR.y - arenaTL.y,
-            backgroundColor: '#161c28',
+            backgroundColor: CHECKER_A,
           }}
         />
       )}
 
-      {gridLines.map((g) => (
-        <View key={g.key} style={[g.style, styles.gridLine]} />
+      {checkerTiles.map((t) => (
+        <View key={t.key} style={t.style} />
       ))}
+
+      {gridLines.map((g) => (
+        <View key={g.key} style={g.style} />
+      ))}
+
+      {arena &&
+        [0, 1, 2].map((i) => (
+          <View
+            key={`wall${i}`}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: arenaTL.x - i * 4,
+              top: arenaTL.y - i * 4,
+              width: arenaBR.x - arenaTL.x + i * 8,
+              height: arenaBR.y - arenaTL.y + i * 8,
+              borderWidth: i === 0 ? 4 : 3,
+              borderColor: `rgba(${WALL_COLOR},${0.55 - i * 0.16})`,
+            }}
+          />
+        ))}
 
       {bonuses.map((b) => {
         const s = toScreen(b.x, b.y);
@@ -843,5 +917,4 @@ export default function GameCanvas() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0c0f16', overflow: 'hidden' },
-  gridLine: { backgroundColor: 'rgba(255,255,255,0.05)' },
 });
