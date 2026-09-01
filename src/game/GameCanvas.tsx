@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import type { BonusType, EffectType, PlayerState, SwordState } from '@/net/protocol';
@@ -39,26 +39,42 @@ const LIGHTNING_LOW_COLOR = '#7dd3fc'; // tier 1 — a cool, modest spark
 const LIGHTNING_HIGH_COLOR = '#ffffff'; // near LEVEL_MAX — a blinding white-hot arc
 const SPIN_TRAIL_COLOR = '#bfe9ff';
 
-/** A stable (per-sword, not per-frame) jagged zigzag from hilt to tip, in the blade's own local
- * frame (centered on 0,0, running along the local x axis) — more, sharper jags at higher tiers. A
- * tiny seeded PRNG keyed on the sword's own id keeps the shape fixed across renders instead of
- * reshuffling into random noise every frame. */
-function lightningPath(len: number, w: number, tier: number, seedId: number): { x: number; y: number }[] {
-  const segments = 3 + Math.floor(Math.min(tier, 15) / 3); // 3..8 jags across the whole level range
-  const amp = w * (0.55 + Math.min(tier, 15) * 0.03);
+/** The zigzag's shape (in a normalized -0.5..0.5 by amplitude-fraction frame) is fully determined by
+ * a sword's own id and tier — same inputs always produce the same jags, which is the whole point
+ * (a stable arc, not reshuffling noise every frame). It's cached here instead of re-running the
+ * seeded PRNG loop 60 times/sec per sword just to regenerate an answer that never changes between a
+ * sword's spawn and its next tier-up. */
+const lightningShapeCache = new Map<string, { xNorm: number; yNorm: number }[]>();
+function lightningShape(tier: number, seedId: number): { xNorm: number; yNorm: number }[] {
+  const cappedTier = Math.min(tier, 15);
+  const key = `${seedId}:${cappedTier}`;
+  const cached = lightningShapeCache.get(key);
+  if (cached) return cached;
+
+  const segments = 3 + Math.floor(cappedTier / 3); // 3..8 jags across the whole level range
+  const ampNorm = 0.55 + cappedTier * 0.03;
   let s = (seedId * 9301 + 49297) % 233280;
   const rand = () => {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
-  const points: { x: number; y: number }[] = [];
+  const points: { xNorm: number; yNorm: number }[] = [];
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
-    const x = -len / 2 + len * t;
-    const y = i === 0 || i === segments ? 0 : (rand() - 0.5) * 2 * amp;
-    points.push({ x, y });
+    const xNorm = -0.5 + t;
+    const yNorm = i === 0 || i === segments ? 0 : (rand() - 0.5) * 2 * ampNorm;
+    points.push({ xNorm, yNorm });
   }
+  lightningShapeCache.set(key, points);
   return points;
+}
+
+/** A stable (per-sword, not per-frame) jagged zigzag from hilt to tip, in the blade's own local
+ * frame (centered on 0,0, running along the local x axis) — more, sharper jags at higher tiers,
+ * scaled to the blade's current on-screen length/width. */
+function lightningPath(len: number, w: number, tier: number, seedId: number): { x: number; y: number }[] {
+  const shape = lightningShape(tier, seedId);
+  return shape.map((p) => ({ x: p.xNorm * len, y: p.yNorm * w }));
 }
 
 // 'bonusPickup' and 'kill' don't use this ring-particle system — they get colorful bursts instead.
@@ -226,6 +242,13 @@ export default function GameCanvas() {
         const curO = smoothOrbitRef.current.get(p.id) ?? p.swordOrbitRadius;
         smoothOrbitRef.current.set(p.id, approach(curO, p.swordOrbitRadius, dtSec, SIZE_SMOOTH_TAU));
       }
+      // Players who've left (bot despawn, disconnect) never come back under the same id — without
+      // this, these maps grow forever over a long-running session instead of tracking who's here now.
+      if (smoothRadiusRef.current.size > state.players.length) {
+        const liveIds = new Set(state.players.map((p) => p.id));
+        for (const id of smoothRadiusRef.current.keys()) if (!liveIds.has(id)) smoothRadiusRef.current.delete(id);
+        for (const id of smoothOrbitRef.current.keys()) if (!liveIds.has(id)) smoothOrbitRef.current.delete(id);
+      }
 
       particlesRef.current = particlesRef.current.filter((p) => now - p.bornAt < EFFECT_LIFETIME_MS);
       burstsRef.current = burstsRef.current.filter((b) => now - b.bornAt < b.lifetimeMs);
@@ -386,75 +409,98 @@ export default function GameCanvas() {
   const arenaTL = arena ? toScreen(0, 0) : { x: 0, y: 0 };
   const arenaBR = arena ? toScreen(arena.width, arena.height) : { x: width, y: height };
 
-  // Checkerboard floor tiles (one per grid cell, alternating shade) so the grid reads as a ruler
-  // players can eyeball their own size against, not just a texture.
-  const checkerTiles: { key: string; style: object }[] = [];
-  const gridLines: { key: string; style: object }[] = [];
+  // Which grid cells are on screen only changes when the camera crosses a cell boundary or the zoom
+  // level changes — far less often than every one of the 60 frames/sec this component re-renders.
+  // These four integers are cheap to recompute every frame; they're what gates the expensive part.
+  let startCol = 0;
+  let endCol = 0;
+  let startRow = 0;
+  let endRow = 0;
   if (arena) {
     const worldLeft = Math.max(0, cam.x - width / 2 / cam.zoom);
     const worldRight = Math.min(arena.width, cam.x + width / 2 / cam.zoom);
     const worldTop = Math.max(0, cam.y - height / 2 / cam.zoom);
     const worldBottom = Math.min(arena.height, cam.y + height / 2 / cam.zoom);
+    startCol = Math.floor(worldLeft / GRID_SIZE);
+    endCol = Math.ceil(worldRight / GRID_SIZE);
+    startRow = Math.floor(worldTop / GRID_SIZE);
+    endRow = Math.ceil(worldBottom / GRID_SIZE);
+  }
 
-    const startCol = Math.floor(worldLeft / GRID_SIZE);
-    const endCol = Math.ceil(worldRight / GRID_SIZE);
-    const startRow = Math.floor(worldTop / GRID_SIZE);
-    const endRow = Math.ceil(worldBottom / GRID_SIZE);
+  // The checkerboard tiles and grid lines (potentially hundreds of elements) are built once per
+  // cell-window/zoom change and cached here, instead of rebuilding every element's screen position
+  // every single frame. Positions are in a "local" frame relative to (originX, originY) — the
+  // camera's continuous per-frame panning is applied afterward as a single translate on the
+  // wrapping layer below, so on-screen motion stays exactly as smooth as before.
+  const gridLayer = useMemo(() => {
+    if (!arena) return null;
+    const zoom = cam.zoom;
+    const originX = startCol * GRID_SIZE;
+    const originY = startRow * GRID_SIZE;
+    const clipLeft = (0 - originX) * zoom;
+    const clipTop = (0 - originY) * zoom;
+    const clipRight = (arena.width - originX) * zoom;
+    const clipBottom = (arena.height - originY) * zoom;
 
+    const tiles: { key: string; style: object }[] = [];
     for (let row = startRow; row < endRow; row++) {
       for (let col = startCol; col < endCol; col++) {
-        const tl = toScreen(col * GRID_SIZE, row * GRID_SIZE);
-        const br = toScreen((col + 1) * GRID_SIZE, (row + 1) * GRID_SIZE);
-        const left = Math.max(tl.x, arenaTL.x);
-        const top = Math.max(tl.y, arenaTL.y);
-        const w = Math.min(br.x, arenaBR.x) - left;
-        const h = Math.min(br.y, arenaBR.y) - top;
-        if (w <= 0 || h <= 0) continue;
-        checkerTiles.push({
+        const left = Math.max((col * GRID_SIZE - originX) * zoom, clipLeft);
+        const top = Math.max((row * GRID_SIZE - originY) * zoom, clipTop);
+        const right = Math.min(((col + 1) * GRID_SIZE - originX) * zoom, clipRight);
+        const bottom = Math.min(((row + 1) * GRID_SIZE - originY) * zoom, clipBottom);
+        if (right <= left || bottom <= top) continue;
+        tiles.push({
           key: `c${col}_${row}`,
           style: {
             position: 'absolute',
             left,
             top,
-            width: w,
-            height: h,
+            width: right - left,
+            height: bottom - top,
             backgroundColor: (col + row) % 2 === 0 ? CHECKER_A : CHECKER_B,
           },
         });
       }
     }
 
-    for (let gx = startCol * GRID_SIZE; gx <= worldRight; gx += GRID_SIZE) {
-      const major = Math.round(gx / GRID_SIZE) % MAJOR_GRID_EVERY === 0;
-      const s = toScreen(gx, 0);
-      gridLines.push({
-        key: `v${gx}`,
+    const lines: { key: string; style: object }[] = [];
+    for (let col = startCol; col <= endCol; col++) {
+      const left = (col * GRID_SIZE - originX) * zoom;
+      if (left < clipLeft - 2 || left > clipRight + 2) continue;
+      const major = col % MAJOR_GRID_EVERY === 0;
+      lines.push({
+        key: `v${col}`,
         style: {
           position: 'absolute',
-          left: s.x,
-          top: arenaTL.y,
+          left,
+          top: clipTop,
           width: major ? 2 : 1,
-          height: arenaBR.y - arenaTL.y,
+          height: clipBottom - clipTop,
           backgroundColor: major ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
         },
       });
     }
-    for (let gy = startRow * GRID_SIZE; gy <= worldBottom; gy += GRID_SIZE) {
-      const major = Math.round(gy / GRID_SIZE) % MAJOR_GRID_EVERY === 0;
-      const s = toScreen(0, gy);
-      gridLines.push({
-        key: `h${gy}`,
+    for (let row = startRow; row <= endRow; row++) {
+      const top = (row * GRID_SIZE - originY) * zoom;
+      if (top < clipTop - 2 || top > clipBottom + 2) continue;
+      const major = row % MAJOR_GRID_EVERY === 0;
+      lines.push({
+        key: `h${row}`,
         style: {
           position: 'absolute',
-          left: arenaTL.x,
-          top: s.y,
-          width: arenaBR.x - arenaTL.x,
+          left: clipLeft,
+          top,
+          width: clipRight - clipLeft,
           height: major ? 2 : 1,
           backgroundColor: major ? GRID_MAJOR_COLOR : GRID_MINOR_COLOR,
         },
       });
     }
-  }
+
+    return { tiles, lines, originX, originY };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arena, cam.zoom, startCol, endCol, startRow, endRow]);
 
   return (
     <View style={styles.root}>
@@ -471,13 +517,33 @@ export default function GameCanvas() {
         />
       )}
 
-      {checkerTiles.map((t) => (
-        <View key={t.key} style={t.style} />
-      ))}
-
-      {gridLines.map((g) => (
-        <View key={g.key} style={g.style} />
-      ))}
+      {gridLayer && (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            transform: [
+              {
+                translateX:
+                  (gridLayer.originX - cam.x) * cam.zoom + width / 2 + shakeOffsetRef.current.x,
+              },
+              {
+                translateY:
+                  (gridLayer.originY - cam.y) * cam.zoom + height / 2 + shakeOffsetRef.current.y,
+              },
+            ],
+          }}
+        >
+          {gridLayer.tiles.map((t) => (
+            <View key={t.key} style={t.style} />
+          ))}
+          {gridLayer.lines.map((g) => (
+            <View key={g.key} style={g.style} />
+          ))}
+        </View>
+      )}
 
       {arena &&
         [0, 1, 2].map((i) => (

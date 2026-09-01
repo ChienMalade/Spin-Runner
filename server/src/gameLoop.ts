@@ -626,10 +626,14 @@ export class GameWorld {
   }
 
   private resolvePickups(players: ServerPlayer[], effects: EffectState[]) {
+    // Snapshotted once per tick rather than re-spread from the Map for every player — a bonus
+    // claimed by an earlier player this same tick is skipped via the `has` check below instead.
+    const candidates = [...this.bonuses.values()];
     for (const p of players) {
       if (!p.alive) continue;
       const r = radiusFor(p);
-      for (const bonus of [...this.bonuses.values()]) {
+      for (const bonus of candidates) {
+        if (!this.bonuses.has(bonus.id)) continue;
         if (!circlesOverlap(p.x, p.y, r, bonus.x, bonus.y, 20)) continue;
         this.applyBonus(p, bonus);
         this.bonuses.delete(bonus.id);

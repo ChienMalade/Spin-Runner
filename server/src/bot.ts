@@ -11,8 +11,23 @@ const SIZE_THREAT_MARGIN = 1.12;
 // that meet there, so they don't camp/wander into a dead end where they're easy to pin down.
 const CORNER_MARGIN = 750;
 const CORNER_AVOID_WEIGHT = 1.6;
+// How much of a chase/flee vector gets redirected sideways instead of running dead straight at (or
+// away from) the target.
+const STRAFE_FRACTION = 0.55;
 
 const wanderState = new WeakMap<ServerPlayer, { angle: number; until: number }>();
+
+/** A fixed per-bot "handedness" derived from the bot's own numeric id — stable across ticks, so a
+ * given bot always curves the same way rather than flip-flopping. Two bots that both target each
+ * other head-on (roughly equal size, so neither flees) would otherwise beeline straight at one
+ * another, meet at point-blank range, and sit there: each tick's forward step gets undone by
+ * body-collision resolution pushing them back apart by the same amount, so neither ever actually
+ * closes the last bit of distance or commits to a side — a stalemate that reads as "just standing
+ * there next to each other". Curving the approach breaks that symmetry so they circle in instead. */
+function strafeSign(bot: ServerPlayer): number {
+  const n = Number(bot.id.replace(/\D/g, '')) || 0;
+  return n % 2 === 0 ? 1 : -1;
+}
 
 /** Bots always charge at the nearest bonus, player or rival bot — unless that target is
  * meaningfully bigger than them, or shielded while the bot isn't, in which case they ignore it, or
@@ -67,12 +82,15 @@ export function updateBotInput(bot: ServerPlayer, players: ServerPlayer[], bonus
 
   let dx: number;
   let dy: number;
+  let targeting = false;
   if (nearestThreat) {
     dx = bot.x - nearestThreat.x;
     dy = bot.y - nearestThreat.y;
+    targeting = true;
   } else if (nearestPrey) {
     dx = nearestPrey.x - bot.x;
     dy = nearestPrey.y - bot.y;
+    targeting = true;
   } else {
     let w = wanderState.get(bot);
     if (!w || now > w.until) {
@@ -81,6 +99,14 @@ export function updateBotInput(bot: ServerPlayer, players: ServerPlayer[], bonus
     }
     dx = Math.cos(w.angle);
     dy = Math.sin(w.angle);
+  }
+
+  if (targeting) {
+    const sign = strafeSign(bot);
+    const perpX = -dy * STRAFE_FRACTION * sign;
+    const perpY = dx * STRAFE_FRACTION * sign;
+    dx += perpX;
+    dy += perpY;
   }
 
   const corner = cornerRepulsion(bot);
