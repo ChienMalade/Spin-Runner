@@ -62,13 +62,18 @@ export default function HealthBar() {
   const exhausted = dashCharges === 0 && player.stamina <= 0;
   const exhaustedBlinkOn = exhausted && Math.floor(now / 300) % 2 === 0;
 
+  // Same oscillation speed for the ready-dash pulse and the shield blink below, so the two read as
+  // one consistent "pulsing" language instead of two different rhythms.
+  const PULSE_PERIOD_MS = 140;
+  const pulsePhase = 0.5 + 0.5 * Math.sin(now / PULSE_PERIOD_MS);
+
   // A ready dash slot keeps pulsing (not just a one-off flash) until it's actually spent, so it
-  // stays visibly "waiting to be used". A brisk, noticeable pulse — not a slow idle blink.
-  const readyPulse = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(now / 140));
+  // stays visibly "waiting to be used".
+  const readyPulse = 0.35 + 0.35 * pulsePhase;
 
   const shielded = player.shieldUntil > now;
-  // Strong, fast blink for as long as the invulnerability lasts — meant to read as "powerful".
-  const shieldBlink = shielded ? 0.25 + 0.55 * Math.abs(Math.sin(now / 110)) : 0;
+  // Strong blink for as long as the invulnerability lasts — meant to read as "powerful".
+  const shieldBlink = shielded ? 0.25 + 0.55 * pulsePhase : 0;
 
   return (
     <View style={styles.wrap} pointerEvents="none">
