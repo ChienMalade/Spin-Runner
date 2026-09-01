@@ -62,10 +62,21 @@ export default function HealthBar() {
   const exhausted = dashCharges === 0 && player.stamina <= 0;
   const exhaustedBlinkOn = exhausted && Math.floor(now / 300) % 2 === 0;
 
+  // A ready dash slot keeps pulsing (not just a one-off flash) until it's actually spent, so it
+  // stays visibly "waiting to be used". A brisk, noticeable pulse — not a slow idle blink.
+  const readyPulse = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(now / 140));
+
+  const shielded = player.shieldUntil > now;
+  // Strong, fast blink for as long as the invulnerability lasts — meant to read as "powerful".
+  const shieldBlink = shielded ? 0.25 + 0.55 * Math.abs(Math.sin(now / 110)) : 0;
+
   return (
     <View style={styles.wrap} pointerEvents="none">
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${hpFrac * 100}%`, backgroundColor: '#ff5d73' }]} />
+        {shielded && (
+          <View style={[styles.overlay, { opacity: shieldBlink, backgroundColor: '#bfe9ff' }]} />
+        )}
         <Graduations count={hpNotches} />
       </View>
       <View style={[styles.track, styles.staminaTrack]}>
@@ -82,6 +93,7 @@ export default function HealthBar() {
           return (
             <View key={i} style={[styles.segment, { left: `${(i / maxDash) * 100}%`, width: `${100 / maxDash}%` }]}>
               <View style={[styles.segFill, { width: `${segFrac * 100}%`, backgroundColor: '#2fb8ff' }]} />
+              {ready && <View style={[styles.overlay, { opacity: readyPulse, backgroundColor: '#ffffff' }]} />}
               {gainAge < FLASH_MS && (
                 <View style={[styles.overlay, { opacity: 1 - gainAge / FLASH_MS, backgroundColor: '#ffffff' }]} />
               )}
