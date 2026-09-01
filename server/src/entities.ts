@@ -5,7 +5,6 @@ import {
   MAX_SWORDS,
   SLOW_FACTOR,
   SPIN_LEVEL_MAX,
-  SPRINT_SECONDS_PER_GRADUATION,
   type PlayerState,
   type SwordState,
 } from './protocol.js';
@@ -25,13 +24,11 @@ export const KNOCKBACK_IMPULSE = 260;
 export const SHIELD_DURATION_MS = 5000; // flat — the "shield" bonus no longer stacks either
 export const SWORD_SIZE_BUFF_MS = 8000;
 export const BOT_RESPAWN_MS = 3000;
-export const SPRINT_MULTIPLIER = 2; // stacks multiplicatively with the "speed" buff, not additively
-const SPRINT_RATE_MULTIPLIER = 1.5; // balance pass: both drain and recharge run 1.5x faster than baseline
-// +0.5s on top of the 1.5x-sped-up base — each graduation now lasts a bit longer under sustained sprint.
-export const SPRINT_DRAIN_SECONDS = 1 / SPRINT_RATE_MULTIPLIER + 0.5; // full stamina bar drained after this long sprinting
-export const STAMINA_RECHARGE_SECONDS = 5 / SPRINT_RATE_MULTIPLIER; // full stamina bar refilled after this long not sprinting
-export const STAMINA_EMPTY_LOCK_MS = 1000; // stays empty this long after hitting 0 before it can recharge
-export const STAMINA_FULL_CHARGE_MS = 3000; // full bar needs to stay full this long to become "charged"
+// Dash charges just fill up on their own, one graduation at a time — no sprint/hold mechanic. A
+// graduation takes CHARGE_FILL_SECONDS to fill and becomes a usable charge the instant it's full,
+// then there's a brief CHARGE_PAUSE_MS beat before the next graduation starts filling.
+export const CHARGE_FILL_SECONDS = 5 / 1.5; // ≈3.33s per graduation
+export const CHARGE_PAUSE_MS = 1000;
 export const DASH_GRID_SIZE = 180; // matches the client's background grid cell size
 export const DASH_DISTANCE = DASH_GRID_SIZE * 2.2; // a charged dash always covers exactly this far
 export const DASH_SPEED_MULTIPLIER = 6; // how much faster than base movement the dash travels
@@ -94,23 +91,13 @@ export interface ServerPlayer {
   facing: number;
   inputDx: number;
   inputDy: number;
+  /** True while the dash button is held — only the rising edge (press) matters, to fire a dash. */
   sprintInput: boolean;
   prevSprintInput: boolean;
-  /** When the current/last sprint press started — used at release time to tell a brief tap from a
-   * sustained hold. */
-  sprintPressStartAt: number;
-  /** Timestamp of the last RELEASE that followed a brief tap (not a sustained hold). A press arriving
-   * soon after one of these — i.e. a real double-tap, two quick taps in a row — is the only thing
-   * allowed to fire a fresh dash while a banked charge is mid-drain; a single press following a long
-   * hold's release instead just resumes draining that same charge from wherever it left off. */
-  lastBriefTapReleaseAt: number;
-  /** Fill (0..1) of whichever already-banked dash charge is currently being spent as sprint fuel —
-   * tracked entirely separately from `stamina` (the passive progress toward earning a NEW charge) so
-   * spending one can never corrupt unrelated progress on the other. 0 when not actively draining one. */
-  sprintFuel: number;
-  stamina: number;
-  staminaEmptyAt: number;
-  staminaFullSince: number;
+  /** Fill (0..1) of the next dash-charge graduation. Becomes a real charge the instant it hits 1. */
+  chargeFill: number;
+  /** While now < this, the next graduation doesn't start filling yet — the brief pause between charges. */
+  nextChargeFillAt: number;
   dashCharges: number;
   maxDashCharges: number;
   dashRemaining: number;
@@ -195,24 +182,16 @@ export function dashSpeedFor(p: ServerPlayer): number {
 }
 
 /** Growth barely slows movement now (an x1.1 step every 2 levels — x1.3 at most, at level 7) — the
- * sword spin carries the real size-vs-speed tradeoff. The "speed" bonus is a flat, non-stacking x2
- * buff; sprinting doubles whatever that current speed is on top of it. */
-export function moveSpeedFor(p: ServerPlayer, sprinting: boolean): number {
+ * sword spin carries the real size-vs-speed tradeoff. The "speed" bonus is a flat, non-stacking x2 buff. */
+export function moveSpeedFor(p: ServerPlayer): number {
   const speedMult = p.speedBuffUntil > Date.now() ? SPEED_BUFF_MULTIPLIER : 1;
-  const sprintMult = sprinting ? SPRINT_MULTIPLIER : 1;
   const growthSlowdown = Math.pow(MOVE_SLOW_STEP_PER_TWO_LEVELS, Math.floor((p.growthTier - 1) / 2));
   const base = Math.max(20, BASE_MOVE_SPEED + p.devMoveSpeedOffset);
-  return (base * speedMult * sprintMult) / growthSlowdown;
+  return (base * speedMult) / growthSlowdown;
 }
 
-export function staminaRechargeSecondsFor(p: ServerPlayer): number {
-  return Math.max(0.5, STAMINA_RECHARGE_SECONDS + p.devStaminaRechargeOffsetSec);
-}
-
-/** Full sprint duration grows with the player: one extra graduation (SPRINT_SECONDS_PER_GRADUATION)
- * per growth level above 1, on top of the level-1 baseline. */
-export function sprintDrainSecondsFor(p: ServerPlayer): number {
-  return SPRINT_DRAIN_SECONDS + (p.growthTier - 1) * SPRINT_SECONDS_PER_GRADUATION;
+export function chargeFillSecondsFor(p: ServerPlayer): number {
+  return Math.max(0.5, CHARGE_FILL_SECONDS + p.devStaminaRechargeOffsetSec);
 }
 
 let nextPlayerId = 1;
@@ -233,12 +212,8 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     inputDy: 0,
     sprintInput: false,
     prevSprintInput: false,
-    sprintPressStartAt: 0,
-    lastBriefTapReleaseAt: -Infinity,
-    sprintFuel: 0,
-    stamina: 1,
-    staminaEmptyAt: 0,
-    staminaFullSince: 0,
+    chargeFill: 1,
+    nextChargeFillAt: 0,
     dashCharges: 0,
     maxDashCharges: BASE_MAX_DASH_CHARGES,
     dashRemaining: 0,
@@ -276,12 +251,8 @@ export function resetForRespawn(p: ServerPlayer, x: number, y: number) {
   p.vy = 0;
   p.sprintInput = false;
   p.prevSprintInput = false;
-  p.sprintPressStartAt = 0;
-  p.lastBriefTapReleaseAt = -Infinity;
-  p.sprintFuel = 0;
-  p.stamina = 1;
-  p.staminaEmptyAt = 0;
-  p.staminaFullSince = 0;
+  p.chargeFill = 1;
+  p.nextChargeFillAt = 0;
   p.dashCharges = 0;
   p.maxDashCharges = BASE_MAX_DASH_CHARGES;
   p.dashRemaining = 0;
@@ -434,14 +405,9 @@ export function serialize(p: ServerPlayer): PlayerState {
     facing: p.facing,
     hp: p.hp,
     maxHp: p.maxHp,
-    // Whichever bar should actually be visible right now: the charge being actively spent as sprint
-    // fuel takes priority, falling back to the passive progress-toward-a-new-charge bar otherwise —
-    // client rendering is unaware of the split and just shows this one value, unchanged from before.
-    stamina: p.sprintFuel > 0 ? p.sprintFuel : p.stamina,
-    staminaFullSince: p.staminaFullSince,
+    stamina: p.chargeFill,
     dashCharges: p.dashCharges,
     maxDashCharges: p.maxDashCharges,
-    sprintDurationSec: sprintDrainSecondsFor(p),
     growthTier: p.growthTier,
     growthProgress: p.growthProgress,
     scale: scaleFor(p.growthTier),

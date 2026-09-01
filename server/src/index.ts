@@ -16,10 +16,21 @@ const STATIC_DIR = path.join(__dirname, '../../dist');
 const manager = new ArenaManager();
 
 const app = express();
-app.use(express.static(STATIC_DIR));
+// The HTML entry point references that build's specific hashed JS bundle by name — if a browser
+// caches index.html itself (common heuristic-caching behavior with no explicit header), a returning
+// player can get stuck on old UI code indefinitely after a deploy even though the server has moved
+// on. Hashed assets (_expo/static/...) are safe to cache hard since their filename changes on every
+// build; index.html always needs a fresh check.
+const noCacheHtml = (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  next();
+};
+app.use(express.static(STATIC_DIR, { setHeaders: (res, filePath) => {
+  if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+} }));
 // Catch-all SPA fallback. Express 5's route-pattern wildcard ('*') no longer matches bare paths, so
 // this uses a path-less middleware instead of app.get('*', ...).
-app.use((_req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
+app.use(noCacheHtml, (_req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });

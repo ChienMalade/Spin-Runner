@@ -23,7 +23,7 @@ export default function HealthBar() {
   const [, setFrame] = useState(0);
 
   // Per-segment "cool effect" flashes: a quick bright pop when a charge is gained, a quick white
-  // burst revealing the yellow underneath when one is spent — keyed by segment index.
+  // burst revealing the blue underneath when one is spent — keyed by segment index.
   const gainFlashRef = useRef<Map<number, number>>(new Map());
   const drainFlashRef = useRef<Map<number, number>>(new Map());
   const prevChargesRef = useRef<number | null>(null);
@@ -81,12 +81,7 @@ export default function HealthBar() {
 
           return (
             <View key={i} style={[styles.segment, { left: `${(i / maxDash) * 100}%`, width: `${100 / maxDash}%` }]}>
-              <View
-                style={[
-                  styles.segFill,
-                  { width: `${segFrac * 100}%`, backgroundColor: ready ? '#2fb8ff' : '#f5c542' },
-                ]}
-              />
+              <View style={[styles.segFill, { width: `${segFrac * 100}%`, backgroundColor: '#2fb8ff' }]} />
               {gainAge < FLASH_MS && (
                 <View style={[styles.overlay, { opacity: 1 - gainAge / FLASH_MS, backgroundColor: '#ffffff' }]} />
               )}

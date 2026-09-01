@@ -11,6 +11,8 @@ import {
 import {
   addSword,
   BOT_RESPAWN_MS,
+  CHARGE_PAUSE_MS,
+  chargeFillSecondsFor,
   createPlayer,
   dashSpeedFor,
   DASH_DISTANCE,
@@ -35,10 +37,6 @@ import {
   SHIELD_DURATION_MS,
   SPEED_BUFF_DURATION_MS,
   spinSpeedFor,
-  sprintDrainSecondsFor,
-  STAMINA_EMPTY_LOCK_MS,
-  STAMINA_FULL_CHARGE_MS,
-  staminaRechargeSecondsFor,
   swordDamageToPlayerFor,
   swordDamageToSwordFor,
   swordMaxHpFor,
@@ -64,11 +62,6 @@ export interface BonusEntity {
 
 const SWORD_HIT_COOLDOWN_MS = 220;
 const PLAYER_HIT_COOLDOWN_MS = 350;
-// A press is a "tap" rather than a hold if released within this long.
-const TAP_MAX_MS = 200;
-// Two taps landing within this window of each other count as a deliberate double-tap — the only
-// thing allowed to interrupt a mid-drain banked charge and fire a fresh dash instead of resuming it.
-const DOUBLE_TAP_WINDOW_MS = 280;
 const SPAWN_MARGIN = 200;
 const SAFE_SPAWN_RADIUS = 260;
 const SAFE_SPAWN_ATTEMPTS = 40;
@@ -332,38 +325,17 @@ export class GameWorld {
       p.vx *= 0.86;
       p.vy *= 0.86;
 
-      // A ready dash charge is a persisted count now (0..maxDashCharges). Firing is ALWAYS purely
-      // `dashCharges > 0` — a graduation that's merely filled to 1 but hasn't finished its
-      // STAMINA_FULL_CHARGE_MS hold (still yellow, not yet a real banked charge) never counts as a
-      // dash, no matter how full it looks; it just keeps counting toward actually becoming one.
-      // While a charge is mid-drain (0 < sprintFuel < 1) from an earlier hold, a plain re-press
-      // should just resume draining it, not fire a fresh dash — only a real double-tap (two quick
-      // taps in a row) is allowed to jump ahead and spend a different charge instead. `sprintFuel` is
-      // tracked completely separately from `stamina` (the passive progress-to-a-new-charge bar) so
-      // firing one never corrupts unrelated progress on the other.
-      const hasResumableDrain = p.sprintFuel > 0 && p.sprintFuel < 1 && p.dashCharges > 0;
-      const isDoubleTap = now - p.lastBriefTapReleaseAt < DOUBLE_TAP_WINDOW_MS;
-      if (p.sprintInput && !p.prevSprintInput) p.sprintPressStartAt = now;
-      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0 && (!hasResumableDrain || isDoubleTap)) {
+      // A ready dash charge is a persisted count (0..maxDashCharges). A press fires one instantly if
+      // any are ready — no sprint/hold mechanic, holding the button does nothing extra.
+      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0) {
         const dirLen = Math.hypot(p.inputDx, p.inputDy);
         const dashAngle = dirLen > 0.01 ? Math.atan2(p.inputDy, p.inputDx) : p.facing;
         p.dashAngle = dashAngle;
         p.dashRemaining = DASH_DISTANCE;
         p.dashCharges--;
-        p.sprintFuel = p.dashCharges > 0 ? 1 : 0; // queues up a fresh full charge to drain next, if any remain
         effects.push({ type: 'dash', x: p.x, y: p.y, actorId: p.id, angle: dashAngle });
       }
-      if (!p.sprintInput && p.prevSprintInput && now - p.sprintPressStartAt < TAP_MAX_MS) {
-        p.lastBriefTapReleaseAt = now;
-      }
       p.prevSprintInput = p.sprintInput;
-
-      // Holding sprint first spends down any already-banked charges — one at a time, chaining
-      // through the stack — before falling back to draining the not-yet-earned one. Otherwise
-      // holding sprint would go dead the moment charges are stacked up, since a stacked player has
-      // nothing left in the classic bar to burn.
-      const drainingBanked = p.sprintInput && p.dashCharges > 0;
-      const sprinting = p.sprintInput && (drainingBanked || p.stamina > 0);
 
       if (p.dashRemaining > 0) {
         // A charged dash locks in its direction and always covers exactly DASH_DISTANCE, ignoring
@@ -373,43 +345,24 @@ export class GameWorld {
         p.y += Math.sin(p.dashAngle) * step;
         p.dashRemaining -= step;
       } else {
-        const speed = moveSpeedFor(p, sprinting);
+        const speed = moveSpeedFor(p);
         p.x += p.inputDx * speed * dtSec;
         p.y += p.inputDy * speed * dtSec;
         if (p.inputDx !== 0 || p.inputDy !== 0) {
           p.facing = Math.atan2(p.inputDy, p.inputDx);
         }
       }
-      if (drainingBanked) {
-        // Resumes wherever this charge's fill currently sits — freshly at 1 if a dash (above) just
-        // queued it up, or partway down if this is a plain re-press resuming an interrupted drain.
-        // `stamina` (the passive bar) is untouched here — it keeps building toward a new charge on
-        // its own, completely independent of whichever banked charge is being spent right now.
-        p.sprintFuel = Math.max(0, p.sprintFuel - dtSec / sprintDrainSecondsFor(p));
-        if (p.sprintFuel <= 0) {
-          p.dashCharges--;
-          p.sprintFuel = p.dashCharges > 0 ? 1 : 0; // still held and charges remain — chain into the next one
-        }
-      } else if (sprinting) {
-        const wasPositive = p.stamina > 0;
-        p.stamina = Math.max(0, p.stamina - dtSec / sprintDrainSecondsFor(p));
-        if (wasPositive && p.stamina <= 0) p.staminaEmptyAt = now;
-      } else if (p.stamina > 0 || now - p.staminaEmptyAt >= STAMINA_EMPTY_LOCK_MS) {
-        p.stamina = Math.min(1, p.stamina + dtSec / staminaRechargeSecondsFor(p));
-      }
 
-      // Once the bar has stayed completely full for STAMINA_FULL_CHARGE_MS, it converts into one
-      // more ready dash charge (if there's room for one) and resets to start filling the next slot.
-      if (p.stamina >= 1) {
-        if (p.staminaFullSince === 0) p.staminaFullSince = now;
-        if (p.dashCharges < p.maxDashCharges && now - p.staminaFullSince >= STAMINA_FULL_CHARGE_MS) {
+      // Charges just fill up on their own, one graduation at a time: it takes chargeFillSecondsFor
+      // to fill, becomes a real charge THE INSTANT it's full (no extra hold-at-full delay), then
+      // there's a brief pause before the next graduation starts.
+      if (p.dashCharges < p.maxDashCharges && now >= p.nextChargeFillAt) {
+        p.chargeFill = Math.min(1, p.chargeFill + dtSec / chargeFillSecondsFor(p));
+        if (p.chargeFill >= 1) {
           p.dashCharges++;
-          p.stamina = 0;
-          p.staminaFullSince = 0;
-          p.staminaEmptyAt = now; // same 1s lock as an empty-from-sprinting bar before it can refill
+          p.chargeFill = 0;
+          p.nextChargeFillAt = now + CHARGE_PAUSE_MS;
         }
-      } else {
-        p.staminaFullSince = 0;
       }
 
       // Slow passive regen — a trickle, not a replacement for the heart bonus.

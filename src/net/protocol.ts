@@ -10,9 +10,8 @@ export const MAX_SWORDS = 15; // flat cap regardless of size — reachable at an
 export const LEVEL_MAX = 15; // sword-tier bonus levels 1..15 — further pickups convert to gold
 export const GROWTH_LEVEL_MAX = 20; // growth (size) levels 1..20
 export const SPIN_LEVEL_MAX = 15; // spin bonus levels 1..15 — further pickups convert to gold
-// Both bars are graduated in fixed-size notches, and growing adds more notches to each.
+// The HP bar is graduated in fixed-size notches, and growing adds more notches to it.
 export const HP_PER_GROWTH_LEVEL = 50; // one HP-bar notch's worth of max HP granted per growth level
-export const SPRINT_SECONDS_PER_GRADUATION = 0.2; // one stamina-bar notch's worth of sprint time
 
 export type BonusType = 'sword' | 'spin' | 'soul' | 'heart' | 'shield' | 'speed' | 'upgrade';
 export type EffectType = 'swordClash' | 'playerHit' | 'swordBreak' | 'bonusPickup' | 'kill' | 'dash';
@@ -44,9 +43,8 @@ export interface PlayerState {
   facing: number;
   hp: number;
   maxHp: number;
+  /** Fill (0..1) of the next dash-charge graduation. */
   stamina: number;
-  staminaFullSince: number;
-  sprintDurationSec: number;
   dashCharges: number;
   maxDashCharges: number;
   growthTier: number;
