@@ -2,7 +2,9 @@ import type { WebSocket } from 'ws';
 import {
   ARENA_HEIGHT,
   ARENA_WIDTH,
+  CHARACTER_IDS,
   type BonusType,
+  type CharacterId,
   type DevCommand,
   type EffectState,
   type LeaderboardEntry,
@@ -14,6 +16,7 @@ import {
   CHARGE_PAUSE_MS,
   chargeFillSecondsFor,
   createPlayer,
+  randomCharacter,
   dashSpeedFor,
   DASH_DISTANCE,
   DEV_MAX_DASH_CHARGES,
@@ -125,6 +128,7 @@ export class GameWorld {
     const name = BOT_NAME_POOL[(this.nextBotSerial - 1) % BOT_NAME_POOL.length];
     this.nextBotSerial++;
     const bot = createPlayer(name, true, ...this.randomSafeSpawn());
+    bot.character = randomCharacter();
     this.bots.push(bot);
     this.players.set(bot.id, bot);
   }
@@ -268,11 +272,19 @@ export class GameWorld {
 
   /** Returns null if the arena is already at MAX_TOTAL_PLAYERS — never trust the client to have
    * enforced the name character whitelist either, so it's re-applied here regardless. */
-  addHumanPlayer(ws: WebSocket, name: string, hue?: number): ServerPlayer | null {
+  addHumanPlayer(
+    ws: WebSocket,
+    name: string,
+    hue?: number,
+    character?: CharacterId
+  ): ServerPlayer | null {
     if (this.players.size >= MAX_TOTAL_PLAYERS) return null;
     const cleaned = (name ?? '').replace(NAME_ALLOWED_CHARS, '').trim().slice(0, MAX_NAME_LEN);
     const p = createPlayer(cleaned || 'Joueur', false, ...this.randomSafeSpawn());
     if (hue != null && Number.isFinite(hue)) p.hue = ((hue % 360) + 360) % 360;
+    // Never trust the client's character either — an unknown id would leave the renderer with no
+    // texture to draw.
+    if (character && (CHARACTER_IDS as readonly string[]).includes(character)) p.character = character;
     p.ws = ws;
     this.players.set(p.id, p);
     this.rebalanceBots();

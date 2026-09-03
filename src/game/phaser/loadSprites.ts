@@ -1,31 +1,28 @@
 import { Asset } from 'expo-asset';
-import {
-  DIRECTIONS,
-  KNIGHT_DASH,
-  KNIGHT_IDLE,
-  KNIGHT_RUN,
-  SWORD_SPRITE,
-  type Direction8,
-} from '@/game/phaser/spriteAssets';
+import { CHARACTERS, DIRECTIONS, SWORD_SPRITE, type Direction8 } from '@/game/phaser/spriteAssets';
+import { CHARACTER_IDS, type CharacterId } from '@/net/protocol';
 
-export const idleKey = (dir: Direction8) => `knight-idle-${dir}`;
-export const runKey = (dir: Direction8, frame: number) => `knight-run-${dir}-${frame}`;
-export const dashKey = (dir: Direction8, frame: number) => `knight-dash-${dir}-${frame}`;
+export const idleKey = (char: CharacterId, dir: Direction8) => `${char}-idle-${dir}`;
+export const runKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-run-${dir}-${frame}`;
+export const dashKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-dash-${dir}-${frame}`;
 export const SWORD_TEXTURE = 'sword-base';
 
 /** Loads every character/sword PNG into plain HTMLImageElements, keyed by the texture name the
  * scene will register them under.
  *
  * Phaser's own loader is deliberately not used: it caps at 32 parallel downloads and, with these
- * ~150 files, stalls after the first batch — 121 files left queued, none in flight, no errors, and
+ * ~280 files, stalls after the first batch — the rest left queued, none in flight, no errors, and
  * the scene never reaches create(). Loading them here and handing the scene ready-made images via
  * `textures.addImage` sidesteps that entirely, and lets the game boot only once the art is ready. */
 export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>> {
   const wanted: [string, number][] = [[SWORD_TEXTURE, SWORD_SPRITE]];
-  for (const dir of DIRECTIONS) {
-    wanted.push([idleKey(dir), KNIGHT_IDLE[dir]]);
-    KNIGHT_RUN[dir].forEach((mod, i) => wanted.push([runKey(dir, i), mod]));
-    KNIGHT_DASH[dir].forEach((mod, i) => wanted.push([dashKey(dir, i), mod]));
+  for (const char of CHARACTER_IDS) {
+    const sprites = CHARACTERS[char];
+    for (const dir of DIRECTIONS) {
+      wanted.push([idleKey(char, dir), sprites.idle[dir]]);
+      sprites.run[dir].forEach((mod, i) => wanted.push([runKey(char, dir, i), mod]));
+      sprites.dash[dir].forEach((mod, i) => wanted.push([dashKey(char, dir, i), mod]));
+    }
   }
 
   const entries = await Promise.all(

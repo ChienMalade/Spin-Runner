@@ -1,13 +1,21 @@
 import type { WebSocket } from 'ws';
 import {
+  CHARACTER_IDS,
+  DEFAULT_CHARACTER,
   GROWTH_LEVEL_MAX,
   LEVEL_MAX,
   MAX_SWORDS,
   SLOW_FACTOR,
   SPIN_LEVEL_MAX,
+  type CharacterId,
   type PlayerState,
   type SwordState,
 } from './protocol.js';
+
+/** Bots pick a character at random, so an arena isn't a wall of identical sprites. */
+export function randomCharacter(): CharacterId {
+  return CHARACTER_IDS[Math.floor(Math.random() * CHARACTER_IDS.length)];
+}
 
 export const BASE_RADIUS = 22;
 // The client sizes the sword sprite from this and places it at this orbit, so what you see is what
@@ -122,6 +130,7 @@ export interface ServerPlayer {
   alive: boolean;
   shieldUntil: number;
   hue: number;
+  character: CharacterId;
   deadSince: number;
   /** Id of the sword currently "inside" this player (0 = none) — used to detect when a different
    * sword takes over, which always lands a guaranteed hit regardless of its own cooldown. */
@@ -238,6 +247,7 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     alive: true,
     shieldUntil: 0,
     hue: Math.floor(Math.random() * 360),
+    character: DEFAULT_CHARACTER,
     deadSince: 0,
     lastTouchingSwordId: 0,
     devMoveSpeedOffset: 0,
@@ -443,6 +453,7 @@ export function serialize(p: ServerPlayer): PlayerState {
     shieldUntil: p.shieldUntil,
     speedBuffUntil: p.speedBuffUntil,
     hue: p.hue,
+    character: p.character,
     devMoveSpeedOffset: p.devMoveSpeedOffset,
     devStaminaRechargeOffsetSec: p.devStaminaRechargeOffsetSec,
     gold: p.gold,

@@ -4,6 +4,7 @@ import { setMuted } from '@/audio/sounds';
 import type {
   ArenaInfo,
   BonusState,
+  CharacterId,
   ClientMessage,
   DevCommand,
   EffectState,
@@ -36,7 +37,7 @@ interface GameStoreState {
   settingsOpen: boolean;
   showNames: boolean;
   connect: () => void;
-  join: (name: string, hue: number, arenaCode?: string) => void;
+  join: (name: string, hue: number, character: CharacterId, arenaCode?: string) => void;
   updateInput: (partial: { dx?: number; dy?: number; sprint?: boolean }) => void;
   retry: () => void;
   toggleMuted: () => void;
@@ -47,7 +48,7 @@ interface GameStoreState {
 }
 
 let socket: WebSocket | null = null;
-let pendingJoin: { name: string; hue: number; arenaCode?: string } | null = null;
+let pendingJoin: { name: string; hue: number; character: CharacterId; arenaCode?: string } | null = null;
 
 function sendMessage(msg: ClientMessage) {
   if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(msg));
@@ -85,7 +86,13 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     ws.onopen = () => {
       set({ connected: true });
       if (pendingJoin) {
-        sendMessage({ t: 'join', name: pendingJoin.name, hue: pendingJoin.hue, arenaCode: pendingJoin.arenaCode });
+        sendMessage({
+          t: 'join',
+          name: pendingJoin.name,
+          hue: pendingJoin.hue,
+          character: pendingJoin.character,
+          arenaCode: pendingJoin.arenaCode,
+        });
         pendingJoin = null;
       }
     };
@@ -121,12 +128,12 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     };
   },
 
-  join: (name, hue, arenaCode) => {
+  join: (name, hue, character, arenaCode) => {
     set({ full: false, fullReason: null });
     if (socket && socket.readyState === WebSocket.OPEN) {
-      sendMessage({ t: 'join', name, hue, arenaCode });
+      sendMessage({ t: 'join', name, hue, character, arenaCode });
     } else {
-      pendingJoin = { name, hue, arenaCode };
+      pendingJoin = { name, hue, character, arenaCode };
     }
   },
 

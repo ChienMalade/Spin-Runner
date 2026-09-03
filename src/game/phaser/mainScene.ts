@@ -1,9 +1,19 @@
 import type Phaser from 'phaser';
 import { useGameStore } from '@/store/gameStore';
-import type { BonusState, BonusType, EffectState, EffectType, PlayerState, SwordState } from '@/net/protocol';
+import {
+  CHARACTER_IDS,
+  DEFAULT_CHARACTER,
+  type BonusState,
+  type BonusType,
+  type CharacterId,
+  type EffectState,
+  type EffectType,
+  type PlayerState,
+  type SwordState,
+} from '@/net/protocol';
 import { hslToHex, lerpColorHex } from '@/game/color';
 import { playSfx, type SfxName } from '@/audio/sounds';
-import { DIRECTIONS, KNIGHT_DASH, KNIGHT_RUN, type Direction8 } from '@/game/phaser/spriteAssets';
+import { CHARACTERS, DIRECTIONS, type Direction8 } from '@/game/phaser/spriteAssets';
 import { dashKey, idleKey, runKey, SWORD_TEXTURE } from '@/game/phaser/loadSprites';
 
 // Same values as the old GameCanvas.tsx / camera.ts — the visual rules haven't changed, only how
@@ -151,8 +161,13 @@ function directionFor(angle: number): Direction8 {
   return DIRECTIONS[index];
 }
 
-const runAnim = (dir: Direction8) => `knight-run-${dir}`;
-const dashAnim = (dir: Direction8) => `knight-dash-${dir}`;
+/** The server is the source of truth for a player's character; fall back to the default rather
+ * than crashing on a value this build doesn't know about (e.g. an older/newer server). */
+const characterOf = (p: PlayerState): CharacterId =>
+  p.character && p.character in CHARACTERS ? p.character : DEFAULT_CHARACTER;
+
+const runAnim = (char: CharacterId, dir: Direction8) => `${char}-run-${dir}`;
+const dashAnim = (char: CharacterId, dir: Direction8) => `${char}-dash-${dir}`;
 
 // Explicit draw order — objects are created at unpredictable times (players join, bonuses spawn),
 // so creation order alone would put e.g. a late-spawning bonus on top of a player.
@@ -203,6 +218,8 @@ interface BonusVisual {
 }
 
 interface PlayerVisual {
+  /** Which character's art this visual uses — animation and texture keys are namespaced by it. */
+  character: CharacterId;
   body: Phaser.GameObjects.Sprite;
   nameText: Phaser.GameObjects.Text;
   /** The shield is drawn as a pixel outline: the same sprite frame stamped once per direction in
@@ -251,19 +268,24 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         this.textures.addImage(key, image)?.setFilter(PhaserNS.Textures.FilterMode.NEAREST);
       }
 
-      for (const dir of DIRECTIONS) {
-        this.anims.create({
-          key: runAnim(dir),
-          frames: KNIGHT_RUN[dir].map((_, i) => ({ key: runKey(dir, i) })),
-          frameRate: RUN_FRAME_RATE,
-          repeat: -1,
-        });
-        this.anims.create({
-          key: dashAnim(dir),
-          frames: KNIGHT_DASH[dir].map((_, i) => ({ key: dashKey(dir, i) })),
-          frameRate: DASH_FRAME_RATE,
-          repeat: -1,
-        });
+      // Every character's animations are registered up front. There are only a couple of them and
+      // the frames are already in memory, so this is cheaper than creating them lazily per player.
+      for (const char of CHARACTER_IDS) {
+        const sprites = CHARACTERS[char];
+        for (const dir of DIRECTIONS) {
+          this.anims.create({
+            key: runAnim(char, dir),
+            frames: sprites.run[dir].map((_, i) => ({ key: runKey(char, dir, i) })),
+            frameRate: RUN_FRAME_RATE,
+            repeat: -1,
+          });
+          this.anims.create({
+            key: dashAnim(char, dir),
+            frames: sprites.dash[dir].map((_, i) => ({ key: dashKey(char, dir, i) })),
+            frameRate: DASH_FRAME_RATE,
+            repeat: -1,
+          });
+        }
       }
       this.drawWorldBackground();
     }
@@ -613,7 +635,8 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
     }
 
     private createPlayerVisual(p: PlayerState): PlayerVisual {
-      const body = this.add.sprite(p.x, p.y, idleKey('south'));
+      const character = characterOf(p);
+      const body = this.add.sprite(p.x, p.y, idleKey(character, 'south'));
       body.setDepth(DEPTH_BODY);
       const nameText = this.add
         .text(p.x, p.y - p.radius - 6, p.name, {
@@ -627,7 +650,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       // One stamp per direction per layer: the wide faint pass first, the tight bright one on top.
       const shieldOutline = SHIELD_OUTLINE_LAYERS.flatMap((layer, layerIndex) =>
         OUTLINE_OFFSETS.map(() => {
-          const stamp = this.add.sprite(p.x, p.y, idleKey('south'));
+          const stamp = this.add.sprite(p.x, p.y, idleKey(character, 'south'));
           // FILL mode paints the silhouette a flat colour instead of multiplying with the art —
           // without it, tinting this near-black armour blue just yields dark navy, not a glow.
           stamp.setTint(layer.color);
@@ -641,6 +664,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       nameText.setDepth(DEPTH_NAME);
 
       return {
+        character,
         body,
         nameText,
         shieldOutline,
@@ -677,9 +701,10 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       const displayRadius = vis.smoothRadius;
       const displayOrbit = vis.smoothOrbit;
 
-      // The knight art stands on the ground, so its feet sit at the bottom of the frame — nudge the
-      // sprite up so the character stands ON its collision circle instead of being centred through
-      // the middle of it.
+      // The character art stands on the ground, so its feet sit at the bottom of the frame — nudge
+      // the sprite up so the character stands ON its collision circle instead of being centred
+      // through the middle of it. One constant covers every character so far: the knight's and
+      // Pablo's opaque bounding boxes match to within a pixel (both 64x64, art spanning y 2..60).
       const spriteSize = displayRadius * 2 * BODY_SPRITE_SCALE;
       vis.body.setPosition(p.x, p.y - spriteSize * BODY_Y_OFFSET);
       vis.body.setDisplaySize(spriteSize, spriteSize);
@@ -730,11 +755,11 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       if (state === vis.animState) return;
       vis.animState = state;
 
-      if (p.dashing) vis.body.play(dashAnim(dir), true);
-      else if (p.moving) vis.body.play(runAnim(dir), true);
+      if (p.dashing) vis.body.play(dashAnim(vis.character, dir), true);
+      else if (p.moving) vis.body.play(runAnim(vis.character, dir), true);
       else {
         vis.body.stop();
-        vis.body.setTexture(idleKey(dir));
+        vis.body.setTexture(idleKey(vis.character, dir));
       }
     }
 

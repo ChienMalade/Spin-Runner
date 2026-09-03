@@ -66,7 +66,7 @@ wss.on('connection', (ws: HeartbeatWebSocket) => {
     }
 
     if (msg.t === 'join') {
-      const result = manager.join(ws, msg.name ?? 'Joueur', msg.hue, msg.arenaCode);
+      const result = manager.join(ws, msg.name ?? 'Joueur', msg.hue, msg.character, msg.arenaCode);
       if (!result.ok) {
         send(ws, { t: 'full', reason: result.reason });
         return;

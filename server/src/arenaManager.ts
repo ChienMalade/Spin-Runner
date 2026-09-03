@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
 import { GameWorld, MAX_TOTAL_PLAYERS } from './gameLoop.js';
 import type { ServerPlayer } from './entities.js';
+import type { CharacterId } from './protocol.js';
 
 const ARENA_COUNT = 2;
 // No 0/O/1/I — avoids ambiguity when a player reads a code out loud to a friend.
@@ -56,19 +57,25 @@ export class ArenaManager {
     return this.arenas.find((a) => a.world.players.size < MAX_TOTAL_PLAYERS);
   }
 
-  join(ws: WebSocket, name: string, hue: number | undefined, arenaCode: string | undefined): JoinResult {
+  join(
+    ws: WebSocket,
+    name: string,
+    hue: number | undefined,
+    character: CharacterId | undefined,
+    arenaCode: string | undefined
+  ): JoinResult {
     let arena: Arena | undefined;
     if (arenaCode) {
       arena = this.findByCode(arenaCode);
       if (!arena) return { ok: false, reason: 'arena_not_found' };
-      const player = arena.world.addHumanPlayer(ws, name, hue);
+      const player = arena.world.addHumanPlayer(ws, name, hue, character);
       if (!player) return { ok: false, reason: 'arena_full' };
       return { ok: true, arena, player };
     }
 
     arena = this.pickForAutoJoin();
     if (!arena) return { ok: false, reason: 'server_full' };
-    const player = arena.world.addHumanPlayer(ws, name, hue);
+    const player = arena.world.addHumanPlayer(ws, name, hue, character);
     if (!player) return { ok: false, reason: 'server_full' };
     return { ok: true, arena, player };
   }

@@ -1,0 +1,226 @@
+{
+  "group_id": "79bbbd08-4036-4f6b-a58d-54e9db3a43aa",
+  "states": [
+    {
+      "character": {
+        "id": "20f1c17f-aefb-42c9-a772-be0be9f4618a",
+        "name": "Marche",
+        "prompt": "8 direction",
+        "size": {
+          "width": 64,
+          "height": 64
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-03T12:08:54.582854+00:00"
+      },
+      "folder": "Marche",
+      "frames": {
+        "rotations": {
+          "south": "Marche/rotations/south.png",
+          "south-east": "Marche/rotations/south-east.png",
+          "east": "Marche/rotations/east.png",
+          "north-east": "Marche/rotations/north-east.png",
+          "north": "Marche/rotations/north.png",
+          "north-west": "Marche/rotations/north-west.png",
+          "west": "Marche/rotations/west.png",
+          "south-west": "Marche/rotations/south-west.png"
+        },
+        "animations": {
+          "Marche_8_direction": {
+            "south-east": [
+              "Marche/animations/Marche_8_direction/south-east/frame_000.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_001.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_002.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_003.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_004.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_005.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_006.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_007.png",
+              "Marche/animations/Marche_8_direction/south-east/frame_008.png"
+            ],
+            "north-east": [
+              "Marche/animations/Marche_8_direction/north-east/frame_000.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_001.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_002.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_003.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_004.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_005.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_006.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_007.png",
+              "Marche/animations/Marche_8_direction/north-east/frame_008.png"
+            ],
+            "east": [
+              "Marche/animations/Marche_8_direction/east/frame_000.png",
+              "Marche/animations/Marche_8_direction/east/frame_001.png",
+              "Marche/animations/Marche_8_direction/east/frame_002.png",
+              "Marche/animations/Marche_8_direction/east/frame_003.png",
+              "Marche/animations/Marche_8_direction/east/frame_004.png",
+              "Marche/animations/Marche_8_direction/east/frame_005.png",
+              "Marche/animations/Marche_8_direction/east/frame_006.png",
+              "Marche/animations/Marche_8_direction/east/frame_007.png",
+              "Marche/animations/Marche_8_direction/east/frame_008.png"
+            ],
+            "south-west": [
+              "Marche/animations/Marche_8_direction/south-west/frame_000.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_001.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_002.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_003.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_004.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_005.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_006.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_007.png",
+              "Marche/animations/Marche_8_direction/south-west/frame_008.png"
+            ],
+            "south": [
+              "Marche/animations/Marche_8_direction/south/frame_000.png",
+              "Marche/animations/Marche_8_direction/south/frame_001.png",
+              "Marche/animations/Marche_8_direction/south/frame_002.png",
+              "Marche/animations/Marche_8_direction/south/frame_003.png",
+              "Marche/animations/Marche_8_direction/south/frame_004.png",
+              "Marche/animations/Marche_8_direction/south/frame_005.png",
+              "Marche/animations/Marche_8_direction/south/frame_006.png",
+              "Marche/animations/Marche_8_direction/south/frame_007.png",
+              "Marche/animations/Marche_8_direction/south/frame_008.png"
+            ],
+            "west": [
+              "Marche/animations/Marche_8_direction/west/frame_000.png",
+              "Marche/animations/Marche_8_direction/west/frame_001.png",
+              "Marche/animations/Marche_8_direction/west/frame_002.png",
+              "Marche/animations/Marche_8_direction/west/frame_003.png",
+              "Marche/animations/Marche_8_direction/west/frame_004.png",
+              "Marche/animations/Marche_8_direction/west/frame_005.png",
+              "Marche/animations/Marche_8_direction/west/frame_006.png",
+              "Marche/animations/Marche_8_direction/west/frame_007.png",
+              "Marche/animations/Marche_8_direction/west/frame_008.png"
+            ],
+            "north-west": [
+              "Marche/animations/Marche_8_direction/north-west/frame_000.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_001.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_002.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_003.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_004.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_005.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_006.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_007.png",
+              "Marche/animations/Marche_8_direction/north-west/frame_008.png"
+            ],
+            "north": [
+              "Marche/animations/Marche_8_direction/north/frame_000.png",
+              "Marche/animations/Marche_8_direction/north/frame_001.png",
+              "Marche/animations/Marche_8_direction/north/frame_002.png",
+              "Marche/animations/Marche_8_direction/north/frame_003.png",
+              "Marche/animations/Marche_8_direction/north/frame_004.png",
+              "Marche/animations/Marche_8_direction/north/frame_005.png",
+              "Marche/animations/Marche_8_direction/north/frame_006.png",
+              "Marche/animations/Marche_8_direction/north/frame_007.png",
+              "Marche/animations/Marche_8_direction/north/frame_008.png"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "character": {
+        "id": "a50e2cff-c090-4e0c-b990-800fddb5e627",
+        "name": "Dash",
+        "prompt": "8 direction",
+        "size": {
+          "width": 64,
+          "height": 64
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-03T20:09:46.534579+00:00"
+      },
+      "folder": "Dash",
+      "frames": {
+        "rotations": {
+          "south": "Dash/rotations/south.png",
+          "south-east": "Dash/rotations/south-east.png",
+          "east": "Dash/rotations/east.png",
+          "north-east": "Dash/rotations/north-east.png",
+          "north": "Dash/rotations/north.png",
+          "north-west": "Dash/rotations/north-west.png",
+          "west": "Dash/rotations/west.png",
+          "south-west": "Dash/rotations/south-west.png"
+        },
+        "animations": {
+          "Dash_8_direction": {
+            "north-west": [
+              "Dash/animations/Dash_8_direction/north-west/frame_000.png",
+              "Dash/animations/Dash_8_direction/north-west/frame_001.png",
+              "Dash/animations/Dash_8_direction/north-west/frame_002.png",
+              "Dash/animations/Dash_8_direction/north-west/frame_003.png",
+              "Dash/animations/Dash_8_direction/north-west/frame_004.png",
+              "Dash/animations/Dash_8_direction/north-west/frame_005.png"
+            ],
+            "west": [
+              "Dash/animations/Dash_8_direction/west/frame_000.png",
+              "Dash/animations/Dash_8_direction/west/frame_001.png",
+              "Dash/animations/Dash_8_direction/west/frame_002.png",
+              "Dash/animations/Dash_8_direction/west/frame_003.png",
+              "Dash/animations/Dash_8_direction/west/frame_004.png",
+              "Dash/animations/Dash_8_direction/west/frame_005.png"
+            ],
+            "south": [
+              "Dash/animations/Dash_8_direction/south/frame_000.png",
+              "Dash/animations/Dash_8_direction/south/frame_001.png",
+              "Dash/animations/Dash_8_direction/south/frame_002.png",
+              "Dash/animations/Dash_8_direction/south/frame_003.png",
+              "Dash/animations/Dash_8_direction/south/frame_004.png",
+              "Dash/animations/Dash_8_direction/south/frame_005.png"
+            ],
+            "north": [
+              "Dash/animations/Dash_8_direction/north/frame_000.png",
+              "Dash/animations/Dash_8_direction/north/frame_001.png",
+              "Dash/animations/Dash_8_direction/north/frame_002.png",
+              "Dash/animations/Dash_8_direction/north/frame_003.png",
+              "Dash/animations/Dash_8_direction/north/frame_004.png",
+              "Dash/animations/Dash_8_direction/north/frame_005.png",
+              "Dash/animations/Dash_8_direction/north/frame_006.png"
+            ],
+            "east": [
+              "Dash/animations/Dash_8_direction/east/frame_000.png",
+              "Dash/animations/Dash_8_direction/east/frame_001.png",
+              "Dash/animations/Dash_8_direction/east/frame_002.png",
+              "Dash/animations/Dash_8_direction/east/frame_003.png",
+              "Dash/animations/Dash_8_direction/east/frame_004.png",
+              "Dash/animations/Dash_8_direction/east/frame_005.png"
+            ],
+            "south-west": [
+              "Dash/animations/Dash_8_direction/south-west/frame_000.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_001.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_002.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_003.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_004.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_005.png",
+              "Dash/animations/Dash_8_direction/south-west/frame_006.png"
+            ],
+            "south-east": [
+              "Dash/animations/Dash_8_direction/south-east/frame_000.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_001.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_002.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_003.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_004.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_005.png",
+              "Dash/animations/Dash_8_direction/south-east/frame_006.png"
+            ],
+            "north-east": [
+              "Dash/animations/Dash_8_direction/north-east/frame_000.png",
+              "Dash/animations/Dash_8_direction/north-east/frame_001.png",
+              "Dash/animations/Dash_8_direction/north-east/frame_002.png",
+              "Dash/animations/Dash_8_direction/north-east/frame_003.png",
+              "Dash/animations/Dash_8_direction/north-east/frame_004.png",
+              "Dash/animations/Dash_8_direction/north-east/frame_005.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-09-03T21:21:01.836350"
+}

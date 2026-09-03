@@ -13,6 +13,14 @@ export const SPIN_LEVEL_MAX = 15; // spin bonus levels 1..15 — further pickups
 // The HP bar is graduated in fixed-size notches, and growing adds more notches to it.
 export const HP_PER_GROWTH_LEVEL = 50; // one HP-bar notch's worth of max HP granted per growth level
 
+/** Playable characters. The art for each lives under assets/Character and is wired up by
+ * scripts/generate-sprite-manifest.mjs — this list is the source of truth, and the generated
+ * manifest is typed as Record<CharacterId, ...>, so adding an id here without adding its art is a
+ * compile error rather than a crash in the arena. */
+export const CHARACTER_IDS = ['knight', 'pablo'] as const;
+export type CharacterId = (typeof CHARACTER_IDS)[number];
+export const DEFAULT_CHARACTER: CharacterId = 'knight';
+
 export type BonusType = 'sword' | 'spin' | 'soul' | 'heart' | 'shield' | 'speed' | 'upgrade';
 export type EffectType = 'swordClash' | 'playerHit' | 'swordBreak' | 'bonusPickup' | 'kill' | 'dash';
 
@@ -38,6 +46,8 @@ export interface SwordState {
 export interface PlayerState {
   id: string;
   name: string;
+  /** Which character art the client should draw for this player. */
+  character: CharacterId;
   isBot: boolean;
   x: number;
   y: number;
@@ -122,7 +132,7 @@ export interface LeaderboardEntry {
 }
 
 export type ClientMessage =
-  | { t: 'join'; name?: string; hue?: number; arenaCode?: string }
+  | { t: 'join'; name?: string; hue?: number; character?: CharacterId; arenaCode?: string }
   | { t: 'input'; dx: number; dy: number; sprint: boolean }
   | { t: 'retry' }
   | { t: 'dev'; command: DevCommand };

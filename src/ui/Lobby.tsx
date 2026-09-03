@@ -1,8 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import { hslToHex } from '@/game/color';
+import { CHARACTERS } from '@/game/phaser/spriteAssets';
+import { CHARACTER_IDS, DEFAULT_CHARACTER } from '@/net/protocol';
 
+// The player picks a character now, not a colour — but the hue still tints their leaderboard dot,
+// so one is assigned at random instead of being chosen.
 const HUE_CHOICES = [0, 30, 55, 90, 140, 175, 200, 230, 265, 300, 330];
 const MAX_NAME_LEN = 16;
 const NAME_ALLOWED_CHARS = /[^a-zA-Z0-9 -]/g;
@@ -22,7 +26,8 @@ export default function Lobby() {
   const fullReason = useGameStore((s) => s.fullReason);
   const [name, setName] = useState('');
   const [arenaCode, setArenaCode] = useState('');
-  const [hue, setHue] = useState(HUE_CHOICES[Math.floor(Math.random() * HUE_CHOICES.length)]);
+  const [hue] = useState(HUE_CHOICES[Math.floor(Math.random() * HUE_CHOICES.length)]);
+  const [character, setCharacter] = useState(DEFAULT_CHARACTER);
   const [showCharWarning, setShowCharWarning] = useState(false);
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -44,7 +49,7 @@ export default function Lobby() {
   };
 
   const handlePlay = () => {
-    join(trimmed || 'Joueur', hue, arenaCode || undefined);
+    join(trimmed || 'Joueur', hue, character, arenaCode || undefined);
   };
 
   return (
@@ -55,11 +60,15 @@ export default function Lobby() {
 
       <View style={styles.card}>
         <Text style={styles.title}>Spin-Runner</Text>
-        <Text style={styles.subtitle}>Choisis ton style et fonce dans l'arène</Text>
+        <Text style={styles.subtitle}>Choisis ton personnage et fonce dans l'arène</Text>
 
         <View style={styles.previewWrap}>
           <View style={[styles.previewRing, { borderColor: previewColor }]}>
-            <View style={[styles.preview, { backgroundColor: previewColor }]} />
+            <Image
+              source={CHARACTERS[character].idle.south}
+              style={styles.preview}
+              resizeMode="contain"
+            />
           </View>
         </View>
 
@@ -92,17 +101,25 @@ export default function Lobby() {
         />
         <Text style={styles.hint}>Laisse vide pour rejoindre une arène au hasard</Text>
 
-        <Text style={styles.label}>Couleur</Text>
-        <View style={styles.swatchRow}>
-          {HUE_CHOICES.map((h) => {
-            const color = hslToHex(h, 0.65, 0.55);
-            const selected = h === hue;
+        <Text style={styles.label}>Personnage</Text>
+        <View style={styles.charRow}>
+          {CHARACTER_IDS.map((id) => {
+            const selected = id === character;
             return (
               <Pressable
-                key={h}
-                onPress={() => setHue(h)}
-                style={[styles.swatch, { backgroundColor: color }, selected && styles.swatchSelected]}
-              />
+                key={id}
+                onPress={() => setCharacter(id)}
+                style={[styles.charCard, selected && styles.charCardSelected]}
+              >
+                <Image
+                  source={CHARACTERS[id].idle.south}
+                  style={styles.charSprite}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.charName, selected && styles.charNameSelected]}>
+                  {CHARACTERS[id].label}
+                </Text>
+              </Pressable>
             );
           })}
         </View>
@@ -162,7 +179,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  preview: { width: 78, height: 78, borderRadius: 39 },
+  // Pixel art: no smoothing on the way up, or the sprite turns to mush at this size.
+  preview: { width: 78, height: 78 },
   input: {
     width: '100%',
     backgroundColor: 'rgba(0,0,0,0.35)',
@@ -188,9 +206,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 10,
   },
-  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28, justifyContent: 'center' },
-  swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 3, borderColor: 'transparent' },
-  swatchSelected: { borderColor: '#fff', transform: [{ scale: 1.12 }] },
+  charRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 28, justifyContent: 'center' },
+  charCard: {
+    width: 92,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    alignItems: 'center',
+  },
+  charCardSelected: { borderColor: '#fff', backgroundColor: 'rgba(255,255,255,0.1)' },
+  charSprite: { width: 56, height: 56 },
+  charName: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  charNameSelected: { color: '#fff' },
   playBtn: {
     width: '100%',
     paddingVertical: 16,
