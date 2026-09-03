@@ -6,6 +6,7 @@
     "expo": "~57.0.18",
     "expo-audio": "~57.0.4",
     "expo-status-bar": "~57.0.1",
+    "phaser": "^4.2.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -24,7 +25,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:web": "expo export -p web",
-    "generate:sounds": "node scripts/generate-sounds.js"
+    "generate:sounds": "node scripts/generate-sounds.js",
+    "generate:sprites": "node scripts/generate-sprite-manifest.mjs"
   },
   "private": true
 }

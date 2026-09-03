@@ -88,6 +88,11 @@ export default function DevPanel() {
         onChange={(delta) => sendDevCommand({ kind: 'spinLevel', delta })}
       />
       <Stepper
+        label="Épée (palier)"
+        value={`${player.swordTier}`}
+        onChange={(delta) => sendDevCommand({ kind: 'swordTier', delta })}
+      />
+      <Stepper
         label="Dashs empilés"
         value={`${player.dashCharges}/${player.maxDashCharges}`}
         onChange={(delta) => sendDevCommand({ kind: 'dashCharges', delta })}

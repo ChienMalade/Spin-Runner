@@ -20,6 +20,7 @@ export type DevCommand =
   | { kind: 'swordCount'; delta: number }
   | { kind: 'growthLevel'; delta: number }
   | { kind: 'spinLevel'; delta: number }
+  | { kind: 'swordTier'; delta: number }
   | { kind: 'dashCharges'; delta: number }
   | { kind: 'moveSpeedOffset'; delta: number }
   | { kind: 'staminaRecharge'; delta: number }
@@ -41,6 +42,11 @@ export interface PlayerState {
   x: number;
   y: number;
   facing: number;
+  /** Whether the player is steering somewhere / mid-dash — picks which character animation (idle,
+   * run, dash) the client plays. Sent explicitly rather than inferred from position deltas, which
+   * flicker because state arrives at 30Hz but renders at 60fps. */
+  moving: boolean;
+  dashing: boolean;
   hp: number;
   maxHp: number;
   /** Fill (0..1) of the next dash-charge graduation. */
@@ -51,6 +57,9 @@ export interface PlayerState {
   growthProgress: number;
   scale: number;
   radius: number;
+  /** Collision radius of one of this player's swords. Sent so the client can size the sword sprite
+   * from the real hit area instead of guessing, keeping what's drawn and what hits in step. */
+  swordRadius: number;
   swordOrbitRadius: number;
   swordOrbitAngle: number;
   swordSpin: number;

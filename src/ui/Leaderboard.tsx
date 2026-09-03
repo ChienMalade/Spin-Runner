@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import { hslToHex } from '@/game/color';
 import { GROWTH_LEVEL_MAX } from '@/net/protocol';
+import { HUD_TOP } from '@/ui/hudLayout';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const RANK_STRIPE = ['#ffd76a', '#c7d2e0', '#e0a458'];
@@ -63,7 +64,7 @@ export default function Leaderboard() {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 20,
+    top: HUD_TOP,
     right: 64,
     width: 230,
   },

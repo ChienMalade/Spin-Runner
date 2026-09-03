@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
 import { HP_PER_GROWTH_LEVEL } from '@/net/protocol';
+import { GAUGES_LEFT, GAUGES_RIGHT, HUD_PANEL_HEIGHT, HUD_TOP } from '@/ui/hudLayout';
 
 /** Thin divider lines marking each notch boundary inside a bar — `count` is how many segments the
  * bar is currently divided into (so `count - 1` visible lines). */
@@ -133,8 +134,10 @@ export default function HealthBar() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', top: 20, left: 20, right: 300 },
+  wrap: { position: 'absolute', top: HUD_TOP, left: GAUGES_LEFT, right: GAUGES_RIGHT },
   panel: {
+    height: HUD_PANEL_HEIGHT,
+    justifyContent: 'center',
     backgroundColor: 'rgba(8,12,20,0.68)',
     borderRadius: 16,
     paddingVertical: 10,

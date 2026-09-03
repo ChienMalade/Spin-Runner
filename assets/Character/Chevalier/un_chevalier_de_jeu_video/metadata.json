@@ -1,0 +1,276 @@
+{
+  "group_id": "4b7def2c-71be-41f6-a78d-33225e54eaac",
+  "states": [
+    {
+      "character": {
+        "id": "f60c3d8b-f0c3-44f3-b2b5-b6bd7e64ae51",
+        "name": "Idle",
+        "prompt": "un chevalier de jeu vid\u00e9o h\u00e9roique, ses habilles et ses cheveux sont noir grisonnant.",
+        "size": {
+          "width": 64,
+          "height": 64
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-01T22:11:44.997245+00:00"
+      },
+      "folder": "Idle",
+      "frames": {
+        "rotations": {
+          "south": "Idle/rotations/south.png",
+          "south-east": "Idle/rotations/south-east.png",
+          "east": "Idle/rotations/east.png",
+          "north-east": "Idle/rotations/north-east.png",
+          "north": "Idle/rotations/north.png",
+          "north-west": "Idle/rotations/north-west.png",
+          "west": "Idle/rotations/west.png",
+          "south-west": "Idle/rotations/south-west.png"
+        },
+        "animations": {}
+      }
+    },
+    {
+      "character": {
+        "id": "b85b6101-eec8-48ff-ba81-895e68827fca",
+        "name": "mid run",
+        "prompt": "un chevalier de jeu vid\u00e9o h\u00e9roique, ses habilles et ses cheveux sont noir grisonnant.",
+        "size": {
+          "width": 64,
+          "height": 64
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-01T22:17:51.647952+00:00"
+      },
+      "folder": "mid_run",
+      "frames": {
+        "rotations": {
+          "south": "mid_run/rotations/south.png",
+          "south-east": "mid_run/rotations/south-east.png",
+          "east": "mid_run/rotations/east.png",
+          "north-east": "mid_run/rotations/north-east.png",
+          "north": "mid_run/rotations/north.png",
+          "north-west": "mid_run/rotations/north-west.png",
+          "west": "mid_run/rotations/west.png",
+          "south-west": "mid_run/rotations/south-west.png"
+        },
+        "animations": {
+          "The_character_leans_forward_into_a_steady_rhythmic": {
+            "north": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north/frame_008.png"
+            ],
+            "south-east": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-east/frame_008.png"
+            ],
+            "east": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/east/frame_008.png"
+            ],
+            "north-west": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-west/frame_008.png"
+            ],
+            "south": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south/frame_008.png"
+            ],
+            "south-west": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/south-west/frame_008.png"
+            ],
+            "west": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/west/frame_008.png"
+            ],
+            "north-east": [
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_000.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_001.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_002.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_003.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_004.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_005.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_006.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_007.png",
+              "mid_run/animations/The_character_leans_forward_into_a_steady_rhythmic/north-east/frame_008.png"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "character": {
+        "id": "c0c2e067-9e91-421d-997a-866931a50806",
+        "name": "mid very fast dash,",
+        "prompt": "un chevalier de jeu vid\u00e9o h\u00e9roique, ses habilles et ses cheveux sont noir grisonnant.",
+        "size": {
+          "width": 64,
+          "height": 64
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-09-01T22:42:41.362233+00:00"
+      },
+      "folder": "mid_very_fast_dash",
+      "frames": {
+        "rotations": {
+          "south": "mid_very_fast_dash/rotations/south.png",
+          "south-east": "mid_very_fast_dash/rotations/south-east.png",
+          "east": "mid_very_fast_dash/rotations/east.png",
+          "north-east": "mid_very_fast_dash/rotations/north-east.png",
+          "north": "mid_very_fast_dash/rotations/north.png",
+          "north-west": "mid_very_fast_dash/rotations/north-west.png",
+          "west": "mid_very_fast_dash/rotations/west.png",
+          "south-west": "mid_very_fast_dash/rotations/south-west.png"
+        },
+        "animations": {
+          "Le_personnage_se_propulse_violemment_vers_l_avant": {
+            "north-west": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-west/frame_008.png"
+            ],
+            "west": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/west/frame_008.png"
+            ],
+            "north": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north/frame_008.png"
+            ],
+            "north-east": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/north-east/frame_008.png"
+            ],
+            "east": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/east/frame_008.png"
+            ],
+            "south-east": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-east/frame_008.png"
+            ],
+            "south": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south/frame_008.png"
+            ],
+            "south-west": [
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_000.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_001.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_002.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_003.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_004.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_005.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_006.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_007.png",
+              "mid_very_fast_dash/animations/Le_personnage_se_propulse_violemment_vers_l_avant/south-west/frame_008.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.1",
+  "export_date": "2026-09-01T23:38:30.005628"
+}

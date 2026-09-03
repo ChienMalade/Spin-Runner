@@ -34,6 +34,7 @@ import {
   serialize,
   setGrowthLevel,
   setSpinLevel,
+  setSwordTier,
   SHIELD_DURATION_MS,
   SPEED_BUFF_DURATION_MS,
   spinSpeedFor,
@@ -167,6 +168,10 @@ export class GameWorld {
       case 'spinLevel':
         if (!p) return;
         setSpinLevel(p, p.spinLevel + command.delta);
+        return;
+      case 'swordTier':
+        if (!p) return;
+        setSwordTier(p, p.swordTier + command.delta);
         return;
       case 'dashCharges':
         if (!p) return;

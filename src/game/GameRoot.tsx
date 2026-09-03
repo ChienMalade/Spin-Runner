@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
-import GameCanvas from '@/game/GameCanvas';
+import PhaserCanvas from '@/game/PhaserCanvas';
 import HealthBar from '@/ui/HealthBar';
 import Joystick from '@/ui/Joystick';
 import DeathOverlay from '@/ui/DeathOverlay';
@@ -46,7 +46,7 @@ export default function GameRoot() {
 
   return (
     <View style={styles.container}>
-      <GameCanvas />
+      <PhaserCanvas />
       <Leaderboard />
       <DamageFlash />
       {/* data-hud marks every UI overlay so useMouseAim can ignore mousemove while the cursor is

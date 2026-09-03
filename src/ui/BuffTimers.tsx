@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '@/store/gameStore';
+import { HUD_PANEL_GAP, HUD_PANEL_HEIGHT, HUD_SIDE_MARGIN, HUD_TOP } from '@/ui/hudLayout';
 
 // Mirrors server/src/entities.ts SHIELD_DURATION_MS / SPEED_BUFF_DURATION_MS — the wire protocol
 // only sends the `Until` timestamp, not the total duration, so these are hand-duplicated to draw
@@ -63,7 +64,13 @@ export default function BuffTimers() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', top: 122, left: 20, flexDirection: 'row', gap: 10 },
+  wrap: {
+    position: 'absolute',
+    top: HUD_TOP + HUD_PANEL_HEIGHT + HUD_PANEL_GAP,
+    left: HUD_SIDE_MARGIN,
+    flexDirection: 'row',
+    gap: 10,
+  },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

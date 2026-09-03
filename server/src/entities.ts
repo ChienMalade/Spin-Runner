@@ -10,8 +10,12 @@ import {
 } from './protocol.js';
 
 export const BASE_RADIUS = 22;
-export const BASE_SWORD_RADIUS = 8;
-export const BASE_SWORD_ORBIT_RADIUS = 48;
+// The client sizes the sword sprite from this and places it at this orbit, so what you see is what
+// actually collides. Bumped from 8/48 when the flat blade became a proper sword sprite: notably
+// bigger and held further out, hit area included — which does lengthen everyone's reach, so this is
+// the dial to turn if combat starts feeling too swingy.
+export const BASE_SWORD_RADIUS = 23;
+export const BASE_SWORD_ORBIT_RADIUS = 52;
 export const BASE_SWORD_SPIN = 1.1; // rad/s at level 1 — lower baseline, and levels climb more gently
 export const BASE_MOVE_SPEED = 230; // px/s
 export const SPEED_BUFF_MULTIPLIER = 2; // flat — the "speed" bonus no longer stacks
@@ -375,6 +379,18 @@ export function setSpinLevel(p: ServerPlayer, level: number) {
   p.spinProgress = 0;
 }
 
+/** Dev-mode only: jumps straight to a sword tier (1..LEVEL_MAX), bypassing pickup progress. Every
+ * blade is re-sharpened to the tier's max HP, matching what gainSwordTier does on a real level-up. */
+export function setSwordTier(p: ServerPlayer, level: number) {
+  p.swordTier = Math.max(1, Math.min(LEVEL_MAX, level));
+  p.swordTierProgress = 0;
+  const maxHp = swordMaxHpFor(p);
+  for (const s of p.swords) {
+    s.maxHp = maxHp;
+    s.hp = maxHp;
+  }
+}
+
 /** An "upgrade" bonus pickup: same escalating-cost leveling, and sharpens every current sword to
  * the new, higher max HP the moment the tier actually increases. Once maxed (LEVEL_MAX), further
  * pickups convert to gold instead of doing nothing. */
@@ -403,6 +419,8 @@ export function serialize(p: ServerPlayer): PlayerState {
     x: p.x,
     y: p.y,
     facing: p.facing,
+    moving: p.inputDx !== 0 || p.inputDy !== 0,
+    dashing: p.dashRemaining > 0,
     hp: p.hp,
     maxHp: p.maxHp,
     stamina: p.chargeFill,
@@ -412,6 +430,7 @@ export function serialize(p: ServerPlayer): PlayerState {
     growthProgress: p.growthProgress,
     scale: scaleFor(p.growthTier),
     radius: radiusFor(p),
+    swordRadius: swordRadiusFor(p),
     swordOrbitRadius: orbitRadiusFor(p),
     swordOrbitAngle: p.swordOrbitAngle,
     swordSpin: spinSpeedFor(p),

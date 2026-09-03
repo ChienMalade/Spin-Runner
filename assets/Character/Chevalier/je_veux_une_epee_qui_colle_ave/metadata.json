@@ -1,0 +1,54 @@
+{
+  "group_id": "f79cc5b4-db66-491f-b5fe-7613e7c20ffa",
+  "objects": [
+    {
+      "id": "60b852cf-166c-483b-a734-52d407c1e75c",
+      "name": "base",
+      "prompt": "je veux une \u00e9p\u00e9e qui colle avec le style de mon personnage que je t'ai mis en image de reference.\n",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "directions": 1,
+      "view": "low top-down",
+      "rotations": {
+        "unknown": "rotations/je_veux_une_epee_qui_colle_ave.png"
+      },
+      "animations": {}
+    },
+    {
+      "id": "61aeacdf-001f-4367-92f8-fb1484dac992",
+      "name": "l'\u00e9p\u00e9e est impregner",
+      "prompt": "je veux une \u00e9p\u00e9e qui colle avec le style de mon personnage que je t'ai mis en image de reference.\n",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "directions": 1,
+      "view": "low top-down",
+      "rotations": {
+        "unknown": "rotations/l_epee_est_impregner.png"
+      },
+      "animations": {
+        "l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da": {
+          "directions": {
+            "unknown": {
+              "frames": [
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_000.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_001.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_002.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_003.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_004.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_005.png",
+                "animations/l_epee_ne_bouge_pas_d_un_poil_la_magie_circule_da/unknown/frame_006.png"
+              ],
+              "frame_count": 7
+            }
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "1.1",
+  "export_date": "2026-09-02T00:17:39.309893"
+}
