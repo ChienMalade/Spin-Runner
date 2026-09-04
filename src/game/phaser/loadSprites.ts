@@ -1,11 +1,26 @@
 import { Asset } from 'expo-asset';
-import { CHARACTERS, DIRECTIONS, SWORD_SPRITE, type Direction8 } from '@/game/phaser/spriteAssets';
+import {
+  BORDER_SPRITE,
+  CHARACTERS,
+  DECOR_NAMES,
+  DECOR_SPRITES,
+  DIRECTIONS,
+  GROUND_TILES,
+  SWORD_SPRITE,
+  type Direction8,
+} from '@/game/phaser/spriteAssets';
 import { CHARACTER_IDS, type CharacterId } from '@/net/protocol';
 
 export const idleKey = (char: CharacterId, dir: Direction8) => `${char}-idle-${dir}`;
 export const runKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-run-${dir}-${frame}`;
 export const dashKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-dash-${dir}-${frame}`;
 export const SWORD_TEXTURE = 'sword-base';
+
+/** Arena art. These never become Phaser textures: the scene paints them once into a single ground
+ * image, so they are handed back as raw images rather than registered individually. */
+export const groundKey = (corners: string) => `ground-${corners}`;
+export const decorKey = (name: string) => `decor-${name}`;
+export const BORDER_TEXTURE = 'border-wall';
 
 /** Loads every character/sword PNG into plain HTMLImageElements, keyed by the texture name the
  * scene will register them under.
@@ -15,7 +30,12 @@ export const SWORD_TEXTURE = 'sword-base';
  * the scene never reaches create(). Loading them here and handing the scene ready-made images via
  * `textures.addImage` sidesteps that entirely, and lets the game boot only once the art is ready. */
 export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>> {
-  const wanted: [string, number][] = [[SWORD_TEXTURE, SWORD_SPRITE]];
+  const wanted: [string, number][] = [
+    [SWORD_TEXTURE, SWORD_SPRITE],
+    [BORDER_TEXTURE, BORDER_SPRITE],
+  ];
+  for (const [corners, mod] of Object.entries(GROUND_TILES)) wanted.push([groundKey(corners), mod]);
+  for (const name of DECOR_NAMES) wanted.push([decorKey(name), DECOR_SPRITES[name]]);
   for (const char of CHARACTER_IDS) {
     const sprites = CHARACTERS[char];
     for (const dir of DIRECTIONS) {

@@ -15,22 +15,26 @@ import { hslToHex, lerpColorHex } from '@/game/color';
 import { playSfx, type SfxName } from '@/audio/sounds';
 import { CHARACTERS, DIRECTIONS, type Direction8 } from '@/game/phaser/spriteAssets';
 import { dashKey, idleKey, runKey, SWORD_TEXTURE } from '@/game/phaser/loadSprites';
+import { makeBlobCanvas, makeCloudCanvas, paintGround } from '@/game/phaser/ground';
 
 // Same values as the old GameCanvas.tsx / camera.ts — the visual rules haven't changed, only how
 // they're drawn. Kept local to this file rather than imported from those (being phased out) so this
 // scene doesn't depend on files that will eventually be deleted.
-// Grassy adventure-style ground, generated as one tile and repeated — no grid, no checkerboard.
-// A large tile with low-contrast mottling and lots of fine blades: big obvious blobs would give the
-// repeat away immediately, whereas fine detail reads as texture rather than as a pattern.
-const GRASS_TILE_SIZE = 256;
-const GRASS_BASE = 0x3f6b34;
-const GRASS_PATCHES = 42;
-const GRASS_PATCH_ALPHA = 0.16;
-const GRASS_PATCH_SHADES = [0x3a6430, 0x44703a, 0x395f2e, 0x476f38];
-const GRASS_BLADES = 900;
-const GRASS_BLADE_SHADES = [0x4d7f3f, 0x37602e, 0x568a45, 0x456f38];
-/** Earthy border marking the edge of the field. */
-const WALL_COLOR = 0x4a3b26;
+/** Cloud shadows drifting over the field: one tiling texture, scrolled slowly. */
+const CLOUD_TEXTURE_PX = 512;
+const CLOUD_WORLD_SIZE = 1400;
+const CLOUD_ALPHA = 0.16;
+const CLOUD_DRIFT_X = 9; // world units per second
+const CLOUD_DRIFT_Y = 4;
+
+/** The blob every character's drop shadow is stamped from. Without a shadow the characters read
+ * as floating above the ground rather than standing on it. */
+const SHADOW_TEXTURE = 'body-shadow';
+const SHADOW_WIDTH = 0.62; // fraction of the sprite box
+const SHADOW_HEIGHT = 0.2; // squashed into an ellipse
+const SHADOW_ALPHA = 0.34;
+/** Mid-dash the character is off the ground, so the shadow shrinks and fades under them. */
+const SHADOW_DASH_SCALE = 0.72;
 
 const BASE_ZOOM = 1.2;
 // Growing pulls the camera back harder than it used to (was 0.09 falloff / 0.35 floor): a maxed
@@ -43,18 +47,56 @@ const SIZE_SMOOTH_TAU = 0.35;
 
 const BOT_BODY_COLOR = 0x8a8a8a;
 const SWORD_WORN_COLOR = '#e0473b';
-const SHIELD_PULSE_MS = 280;
-/** Bright core outline plus a wider, fainter halo around it — two stamped passes are what sells the
- * "glowing" part without any shader.
+const AURA_PULSE_MS = 280;
+/** How fast a timed aura flashes during its final second. Fast enough to read as "about to end",
+ * slow enough not to strobe. */
+const AURA_BLINK_MS = 130;
+/** The last stretch of a lasting aura (shield, speed) is spent blinking as a warning. */
+const AURA_WARN_MS = 1000;
+/** How long the pickup-flash auras stay up. */
+const AURA_FLASH_MS = 1000;
+
+/** Auras are drawn as a pixel outline hugging the character's silhouette. Each has a wide faint
+ * halo and a tighter bright core — two stamped passes are what sells the "glowing" part without
+ * any shader.
  *
  * Thickness is measured in pixels OF THE SOURCE ART, not of the screen: the sprites are drawn
  * several times their native size, so a screen-pixel offset would be thinner than a single source
  * pixel and vanish behind the character. Working in source pixels also keeps the same visual weight
  * for any future character, whatever its art resolution. */
-const SHIELD_OUTLINE_LAYERS = [
-  { texels: 3.8, color: 0x2b8fff, alpha: 0.45 },
-  { texels: 1.8, color: 0x7fd4ff, alpha: 1 },
+/** Up to three concentric bands, innermost first. Several bonuses at once show as several rings
+ * rather than one blended colour: band 0 hugs the silhouette, band 1 sits outside it, band 2 outside
+ * that. With a single bonus active every band takes its colour, which reads as one thick glow with
+ * a soft falloff — the same look the shield had before. */
+const AURA_BANDS = [
+  { texels: 1.8, alpha: 1 },
+  { texels: 3.9, alpha: 0.62 },
+  { texels: 6.0, alpha: 0.4 },
 ];
+const AURA_MAX_BANDS = AURA_BANDS.length;
+
+export type AuraKind = 'shield' | 'speed' | 'heart' | 'upgrade' | 'spin';
+
+/** One flat colour per aura. Deliberately not blended with each other: two bonuses give two rings,
+ * not a muddy in-between shade. */
+const AURA_COLORS: Record<AuraKind, number> = {
+  shield: 0x3ba0ff,
+  speed: 0x25d07a,
+  heart: 0xf01d3c,
+  upgrade: 0xf5b400,
+  spin: 0xa53dff,
+};
+
+/** Order the rings are assigned in, innermost first, when more than one bonus is active. The three
+ * pickup flashes come first so the bonus you just grabbed is the ring closest to your silhouette. */
+const AURA_PRIORITY: AuraKind[] = ['heart', 'upgrade', 'spin', 'shield', 'speed'];
+
+/** Bonus types that trigger a one-second aura flash on pickup, and the aura they raise. */
+const PICKUP_FLASH_AURA: Partial<Record<BonusType, AuraKind>> = {
+  heart: 'heart',
+  upgrade: 'upgrade',
+  spin: 'spin',
+};
 /** The eight directions the silhouette is stamped in to build the outline. Nothing here depends on
  * the character's size or art style, so any future character gets a correct outline for free. */
 const OUTLINE_OFFSETS: [number, number][] = [
@@ -172,14 +214,18 @@ const dashAnim = (char: CharacterId, dir: Direction8) => `${char}-dash-${dir}`;
 // Explicit draw order — objects are created at unpredictable times (players join, bonuses spawn),
 // so creation order alone would put e.g. a late-spawning bonus on top of a player.
 const DEPTH_GROUND = 0;
+const DEPTH_CLOUD = 1;
+const DEPTH_SHADOW = 2;
 const DEPTH_BONUS = 5;
 const DEPTH_SWORD_BEHIND = 10;
 /** Behind the body so it reads as a halo bleeding out from behind the character. */
-const DEPTH_SHIELD_AURA = 11;
+const DEPTH_AURA = 11;
 const DEPTH_BODY = 12;
 const DEPTH_SWORD_FRONT = 13;
 const DEPTH_PARTICLE = 16;
 const DEPTH_NAME = 20;
+/** Above everything: the vignette is a screen effect, not part of the world. */
+const DEPTH_VIGNETTE = 30;
 
 interface SwordVisual {
   container: Phaser.GameObjects.Container;
@@ -222,9 +268,16 @@ interface PlayerVisual {
   character: CharacterId;
   body: Phaser.GameObjects.Sprite;
   nameText: Phaser.GameObjects.Text;
-  /** The shield is drawn as a pixel outline: the same sprite frame stamped once per direction in
-   * OUTLINE_OFFSETS, flat-tinted and sitting behind the character, so only the edges show. */
-  shieldOutline: Phaser.GameObjects.Sprite[];
+  /** Soft ellipse on the ground under the character. Purely visual, and the single cheapest thing
+   * that stops everyone looking like they are hovering. */
+  shadow: Phaser.GameObjects.Image;
+  /** The aura is drawn as a pixel outline: the same sprite frame stamped once per direction in
+   * OUTLINE_OFFSETS, flat-tinted and sitting behind the character, so only the edges show. One set
+   * of stamps is reused by every aura — only the tint changes. */
+  auraStamps: Phaser.GameObjects.Sprite[];
+  /** When each pickup-flash aura expires. Driven by effects, not by server state, since a pickup is
+   * an event rather than a lasting condition. */
+  flashUntil: Partial<Record<AuraKind, number>>;
   swords: Map<number, SwordVisual>;
   smoothRadius: number;
   smoothOrbit: number;
@@ -259,6 +312,9 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       super('main');
     }
 
+    private clouds: Phaser.GameObjects.TileSprite | null = null;
+    private vignette: Phaser.GameObjects.Image | null = null;
+
     create() {
       // Textures come in already loaded (see loadSprites.ts for why Phaser's own loader isn't used).
       // Each is forced to nearest-neighbour sampling: these are 64x64 pixel-art frames drawn at
@@ -288,72 +344,93 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         }
       }
       this.drawWorldBackground();
+      this.drawVignette();
     }
 
-    /** Builds one grass tile as a texture, then tiles it over the whole arena. Generated rather than
-     * drawn from an art file since there's no grass art in the project yet — swapping in a real
-     * tileset later just means loading it and pointing the TileSprite at it. */
-    private makeGrassTexture(): string {
-      const key = 'grass-tile';
-      if (this.textures.exists(key)) return key;
-
-      const size = GRASS_TILE_SIZE;
-      const gfx = this.make.graphics({ x: 0, y: 0 }, false);
-      gfx.fillStyle(GRASS_BASE, 1);
-      gfx.fillRect(0, 0, size, size);
-
-      // A fixed seed keeps the tile identical between sessions, so the ground doesn't reshuffle.
-      let seed = 1337;
-      const rand = () => {
-        seed = (seed * 9301 + 49297) % 233280;
-        return seed / 233280;
-      };
-
-      // Soft patches first (broad mottling), then blades on top, so the ground reads as grass rather
-      // than flat colour without any repeating pattern jumping out.
-      for (let i = 0; i < GRASS_PATCHES; i++) {
-        const shade = GRASS_PATCH_SHADES[Math.floor(rand() * GRASS_PATCH_SHADES.length)];
-        gfx.fillStyle(shade, GRASS_PATCH_ALPHA);
-        gfx.fillCircle(rand() * size, rand() * size, size * (0.04 + rand() * 0.09));
-      }
-      for (let i = 0; i < GRASS_BLADES; i++) {
-        const shade = GRASS_BLADE_SHADES[Math.floor(rand() * GRASS_BLADE_SHADES.length)];
-        const x = rand() * size;
-        const y = rand() * size;
-        const h = 2 + rand() * 3;
-        gfx.lineStyle(1, shade, 0.3 + rand() * 0.4);
-        gfx.lineBetween(x, y, x + (rand() - 0.5) * 1.6, y - h);
-      }
-
-      gfx.generateTexture(key, size, size);
-      gfx.destroy();
-      return key;
-    }
-
-    /** The ground never changes once the arena is known, so it's built once and left alone — the
-     * camera does the panning and zooming for free. */
+    /** Paints the whole floor into one texture and drops it in as a single image.
+     *
+     * The floor used to be a procedural tile repeated over the arena; it is now real art — a Wang
+     * set over two tones of grass, with the ground cover and the edge wall baked in. See ground.ts
+     * for why it is one baked texture rather than thousands of tile sprites. */
     private drawWorldBackground() {
       const arena = useGameStore.getState().arena;
       if (!arena) return;
 
-      const grass = this.makeGrassTexture();
+      const key = 'arena-ground';
+      if (!this.textures.exists(key)) {
+        const painted = paintGround(spriteImages, arena.width, arena.height);
+        this.textures.addCanvas(key, painted)?.setFilter(PhaserNS.Textures.FilterMode.NEAREST);
+      }
       this.add
-        .tileSprite(0, 0, arena.width, arena.height, grass)
+        .image(0, 0, key)
         .setOrigin(0, 0)
+        .setDisplaySize(arena.width, arena.height)
         .setDepth(DEPTH_GROUND);
 
-      // The boundary is now a band of darker earth rather than a neon line, so it reads as the edge
-      // of the field instead of a UI element.
-      const gfx = this.add.graphics().setDepth(DEPTH_GROUND);
-      for (let i = 0; i < 3; i++) {
-        gfx.lineStyle(10 - i * 3, WALL_COLOR, 0.5 - i * 0.14);
-        gfx.strokeRect(-i * 6, -i * 6, arena.width + i * 12, arena.height + i * 12);
+      // Cloud shadows: one scrolling tile sprite over the whole field. Cheap, and it does more for
+      // the feeling of an outdoor space than any amount of extra ground detail.
+      const cloudKey = 'cloud-shadows';
+      if (!this.textures.exists(cloudKey)) {
+        this.textures.addCanvas(cloudKey, makeCloudCanvas(CLOUD_TEXTURE_PX));
       }
+      this.clouds = this.add
+        .tileSprite(0, 0, arena.width, arena.height, cloudKey)
+        .setOrigin(0, 0)
+        .setAlpha(CLOUD_ALPHA)
+        .setDepth(DEPTH_CLOUD);
+      this.clouds.setTileScale(CLOUD_WORLD_SIZE / CLOUD_TEXTURE_PX);
+
+      // The soft blob every character's drop shadow is drawn from.
+      if (!this.textures.exists(SHADOW_TEXTURE)) {
+        this.textures.addCanvas(SHADOW_TEXTURE, makeBlobCanvas(64, 0.25));
+      }
+    }
+
+    /** A dark rim that fades in at the screen edges. Pinned to the camera rather than the world, so
+     * it stays put while everything else scrolls underneath. */
+    private drawVignette() {
+      const key = 'vignette';
+      if (!this.textures.exists(key)) {
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.32, size / 2, size / 2, size * 0.72);
+          g.addColorStop(0, 'rgba(0,0,0,0)');
+          g.addColorStop(1, 'rgba(0,0,0,0.55)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, size, size);
+        }
+        this.textures.addCanvas(key, canvas);
+      }
+      const cam = this.cameras.main;
+      this.vignette = this.add
+        .image(0, 0, key)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(DEPTH_VIGNETTE)
+        .setDisplaySize(cam.width, cam.height);
     }
 
     update(_time: number, deltaMs: number) {
       const state = useGameStore.getState();
       const dtSec = Math.min(0.1, deltaMs / 1000);
+
+      if (this.clouds) {
+        // Divided by the tile scale because the offset is in texture pixels, not world units.
+        const perUnit = CLOUD_TEXTURE_PX / CLOUD_WORLD_SIZE;
+        this.clouds.tilePositionX += CLOUD_DRIFT_X * dtSec * perUnit;
+        this.clouds.tilePositionY += CLOUD_DRIFT_Y * dtSec * perUnit;
+      }
+      if (this.vignette) {
+        const cam = this.cameras.main;
+        // The canvas can be resized under us (window resize, phone rotation).
+        if (this.vignette.displayWidth !== cam.width || this.vignette.displayHeight !== cam.height) {
+          this.vignette.setDisplaySize(cam.width, cam.height);
+        }
+      }
       const now = Date.now();
       const localPlayer = state.players.find((p) => p.id === state.playerId) ?? null;
 
@@ -425,6 +502,12 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         } else if (e.type === 'playerHit') {
           freezeRotation(e.actorId, HIT_FREEZE_MS);
           if (localPlayerId === e.targetId) this.triggerShake(HIT_SHAKE.mag, HIT_SHAKE.durMs);
+        }
+
+        if (e.type === 'bonusPickup' && e.bonusType) {
+          const flash = PICKUP_FLASH_AURA[e.bonusType];
+          const vis = e.actorId ? this.playerVisuals.get(e.actorId) : undefined;
+          if (flash && vis) vis.flashUntil[flash] = now + AURA_FLASH_MS;
         }
 
         if (e.type === 'bonusPickup' && e.bonusType === 'heart') {
@@ -636,6 +719,10 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
 
     private createPlayerVisual(p: PlayerState): PlayerVisual {
       const character = characterOf(p);
+      const shadow = this.add
+        .image(p.x, p.y, SHADOW_TEXTURE)
+        .setAlpha(SHADOW_ALPHA)
+        .setDepth(DEPTH_SHADOW);
       const body = this.add.sprite(p.x, p.y, idleKey(character, 'south'));
       body.setDepth(DEPTH_BODY);
       const nameText = this.add
@@ -648,15 +735,14 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         .setOrigin(0.5, 1)
         .setShadow(0, 1, 'rgba(0,0,0,0.85)', 3);
       // One stamp per direction per layer: the wide faint pass first, the tight bright one on top.
-      const shieldOutline = SHIELD_OUTLINE_LAYERS.flatMap((layer, layerIndex) =>
+      const auraStamps = AURA_BANDS.flatMap((_, layerIndex) =>
         OUTLINE_OFFSETS.map(() => {
           const stamp = this.add.sprite(p.x, p.y, idleKey(character, 'south'));
           // FILL mode paints the silhouette a flat colour instead of multiplying with the art —
           // without it, tinting this near-black armour blue just yields dark navy, not a glow.
-          stamp.setTint(layer.color);
           stamp.setTintMode(PhaserNS.TintModes.FILL);
           stamp.setVisible(false);
-          stamp.setDepth(DEPTH_SHIELD_AURA + layerIndex * 0.1);
+          stamp.setDepth(DEPTH_AURA + (AURA_MAX_BANDS - 1 - layerIndex) * 0.1);
           return stamp;
         })
       );
@@ -665,9 +751,11 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
 
       return {
         character,
+        shadow,
         body,
         nameText,
-        shieldOutline,
+        auraStamps,
+        flashUntil: {},
         swords: new Map(),
         smoothRadius: p.radius,
         smoothOrbit: p.swordOrbitRadius,
@@ -682,11 +770,12 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       const alive = p.alive;
       vis.body.setVisible(alive);
       vis.nameText.setVisible(alive);
+      vis.shadow.setVisible(alive);
       if (!alive) {
-        // Swords/shield were only ever hidden as a side effect of syncSwords running, which never
+        // Swords/aura were only ever hidden as a side effect of syncSwords running, which never
         // ran once dead — so they'd stay on screen, frozen, until the next respawn recreated them.
         // Hide everything explicitly instead of relying on that.
-        for (const stamp of vis.shieldOutline) stamp.setVisible(false);
+        for (const stamp of vis.auraStamps) stamp.setVisible(false);
         for (const sv of vis.swords.values()) sv.container.setVisible(false);
         return;
       }
@@ -710,33 +799,89 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       vis.body.setDisplaySize(spriteSize, spriteSize);
       this.syncBodyAnimation(vis, p);
 
+      // The shadow sits at the collision centre — where the feet actually are — not under the
+      // sprite's middle. Mid-dash it tightens up, which reads as the character leaving the ground.
+      const airborne = p.dashing ? SHADOW_DASH_SCALE : 1;
+      vis.shadow.setPosition(p.x, p.y + displayRadius * 0.18);
+      vis.shadow.setDisplaySize(spriteSize * SHADOW_WIDTH * airborne, spriteSize * SHADOW_HEIGHT * airborne);
+      vis.shadow.setAlpha(SHADOW_ALPHA * (p.dashing ? 0.65 : 1));
+
       vis.nameText.setPosition(p.x, p.y - spriteSize * 0.62);
       vis.nameText.setFontSize(Math.max(9, Math.min(22, displayRadius * 0.5)));
 
-      const shielded = p.shieldUntil > now;
-      if (shielded) {
-        const pulse = 0.5 + 0.5 * Math.sin(now / SHIELD_PULSE_MS);
-        // One source pixel is (spriteSize / frame width) world units once the art is scaled up.
-        const texel = spriteSize / Math.max(1, vis.body.frame.width);
-        vis.shieldOutline.forEach((stamp, i) => {
-          const layer = SHIELD_OUTLINE_LAYERS[Math.floor(i / OUTLINE_OFFSETS.length)];
-          const [ox, oy] = OUTLINE_OFFSETS[i % OUTLINE_OFFSETS.length];
-          const step = texel * layer.texels;
-          // Same frame as the body, so the outline tracks the animation exactly.
-          stamp.setTexture(vis.body.texture.key, vis.body.frame.name);
-          stamp.setDisplaySize(spriteSize, spriteSize);
-          stamp.setPosition(vis.body.x + ox * step, vis.body.y + oy * step);
-          stamp.setAlpha(layer.alpha * (0.8 + 0.2 * pulse));
-          stamp.setVisible(true);
-        });
-      } else {
-        for (const stamp of vis.shieldOutline) stamp.setVisible(false);
-      }
+      this.syncAura(vis, p, now, spriteSize);
 
       const frozen = this.rotationFreeze.get(p.id);
       const orbitAngle = frozen && now < frozen.until ? frozen.angle : p.swordOrbitAngle;
 
       this.syncSwords(vis, p, displayOrbit, orbitAngle);
+    }
+
+    /** Every aura currently up, innermost ring first, capped at AURA_MAX_BANDS.
+     *
+     * Lasting auras (shield, speed) end at a time the server tells us, so their last second is spent
+     * blinking as a warning — each ring blinks on its own clock, so a green ring can be flashing out
+     * while the blue one beside it holds steady. Pickup flashes are raised by an effect and simply
+     * run out; a one-second flash IS its own warning, so it never blinks. */
+    private activeAuras(
+      vis: PlayerVisual,
+      p: PlayerState,
+      now: number
+    ): { kind: AuraKind; intensity: number }[] {
+      const endsAt: Partial<Record<AuraKind, number>> = {
+        shield: p.shieldUntil,
+        speed: p.speedBuffUntil,
+        heart: vis.flashUntil.heart,
+        upgrade: vis.flashUntil.upgrade,
+        spin: vis.flashUntil.spin,
+      };
+
+      const out: { kind: AuraKind; intensity: number }[] = [];
+      for (const kind of AURA_PRIORITY) {
+        if (out.length >= AURA_MAX_BANDS) break;
+        const until = endsAt[kind];
+        if (until == null || until <= now) continue;
+
+        const remaining = until - now;
+        const warns = kind === 'shield' || kind === 'speed';
+        const blinking = warns && remaining < AURA_WARN_MS;
+        const intensity = blinking
+          ? Math.floor(remaining / AURA_BLINK_MS) % 2 === 0
+            ? 1
+            : 0
+          : 0.8 + 0.2 * (0.5 + 0.5 * Math.sin(now / AURA_PULSE_MS));
+        out.push({ kind, intensity });
+      }
+      return out;
+    }
+
+    /** Stamps the character's own silhouette behind them in the aura's colour. Nothing here reads
+     * the art itself, so any character — and any future one — gets a correct outline for free. */
+    private syncAura(vis: PlayerVisual, p: PlayerState, now: number, spriteSize: number) {
+      const auras = this.activeAuras(vis, p, now);
+      if (auras.length === 0) {
+        for (const stamp of vis.auraStamps) stamp.setVisible(false);
+        return;
+      }
+
+      // One source pixel is (spriteSize / frame width) world units once the art is scaled up.
+      const texel = spriteSize / Math.max(1, vis.body.frame.width);
+      vis.auraStamps.forEach((stamp, i) => {
+        const bandIndex = Math.floor(i / OUTLINE_OFFSETS.length);
+        const band = AURA_BANDS[bandIndex];
+        // Fewer bonuses than bands: the outer bands repeat the last aura's colour, so a lone bonus
+        // reads as one thick glow instead of a thin line.
+        const aura = auras[Math.min(bandIndex, auras.length - 1)];
+        const [ox, oy] = OUTLINE_OFFSETS[i % OUTLINE_OFFSETS.length];
+        const step = texel * band.texels;
+        // Same frame as the body, so the outline tracks the animation exactly.
+        stamp.setTexture(vis.body.texture.key, vis.body.frame.name);
+        stamp.setTint(AURA_COLORS[aura.kind]);
+        stamp.setDisplaySize(spriteSize, spriteSize);
+        stamp.setPosition(vis.body.x + ox * step, vis.body.y + oy * step);
+        stamp.setAlpha(band.alpha * aura.intensity);
+        stamp.setVisible(aura.intensity > 0);
+      });
     }
 
     /** Picks the right 8-way idle/run/dash animation and only restarts it when the state actually
@@ -809,9 +954,10 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
     }
 
     private destroyPlayerVisual(vis: PlayerVisual) {
+      vis.shadow.destroy();
       vis.body.destroy();
       vis.nameText.destroy();
-      for (const stamp of vis.shieldOutline) stamp.destroy();
+      for (const stamp of vis.auraStamps) stamp.destroy();
       for (const sv of vis.swords.values()) sv.container.destroy();
     }
   };

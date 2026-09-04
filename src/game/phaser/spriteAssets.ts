@@ -408,3 +408,22 @@ export const CHARACTERS: Record<CharacterId, CharacterSprites> = {
 
 /** The plain sword. The magic-imbued variant (l_epee_est_impregner) is deliberately left out for now. */
 export const SWORD_SPRITE: number = require('../../../assets/Character/Chevalier/je_veux_une_epee_qui_colle_ave/je_veux_une_epee_qui_colle_ave/rotations/je_veux_une_epee_qui_colle_ave.png');
+/** Ground tiles, keyed by their four corners as NW/NE/SW/SE, '1' meaning the second grass tone.
+ * The renderer builds a corner grid over the arena and looks each cell's four corners up here. */
+export const GROUND_TILES: Record<string, number> = {
+  '0000': require('../../../assets/Map/ground/tile-0000.png'),
+};
+
+/** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */
+export const DECOR_SPRITES: Record<string, number> = {
+  'daisies': require('../../../assets/Map/decor/daisies.png'),
+  'cornflowers': require('../../../assets/Map/decor/cornflowers.png'),
+  'buttercups': require('../../../assets/Map/decor/buttercups.png'),
+  'pebbles': require('../../../assets/Map/decor/pebbles.png'),
+  'clover': require('../../../assets/Map/decor/clover.png'),
+  'tuft': require('../../../assets/Map/decor/tuft.png'),
+};
+export const DECOR_NAMES: string[] = ['daisies', 'cornflowers', 'buttercups', 'pebbles', 'clover', 'tuft'];
+
+/** The field's edge wall. Decorative: the real boundary is the server's rectangle. */
+export const BORDER_SPRITE: number = require('../../../assets/Map/border/wall.png');
