@@ -1,12 +1,17 @@
-// Generates the arena's ground tileset and its scatter decor via the PixelLab API.
+// Generates the arena's floor art through PixelLab's Pro tile tools.
 //
-//   node scripts/pixellab-map.mjs ground     # 3 generations — two grass tones, Wang-blended
-//   node scripts/pixellab-map.mjs decor      # 1 generation per prop
-//   node scripts/pixellab-map.mjs border     # 1 generation
+//   node scripts/pixellab-map.mjs field    # 4 grass variations
+//   node scripts/pixellab-map.mjs stone    # grass <-> stone, corner set
+//   node scripts/pixellab-map.mjs water    # grass <-> water, corner set
+//   node scripts/pixellab-map.mjs all
 //
-// Costs real credits, so each group is run explicitly rather than all at once. Results land in
-// assets/Map/. Both endpoints can answer synchronously OR hand back a job to poll, so every call
-// goes through the same wait-then-fetch path.
+// These are the PRO tools (~40 generations a call at 64px), not the 1-generation ones. The cheap
+// endpoints were tried first and the result was the problem: 32px tiles against 64px characters, so
+// the ground was half the resolution of the people standing on it, and terrain pairs kept coming
+// back as flat colour. Quality here is worth the credits — the floor is most of what you look at.
+//
+// Tiles are generated at 64px to match the character art exactly: one source pixel of ground is one
+// source pixel of character, which is what makes a scene read as one piece of art rather than two.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,16 +20,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const key = readFileSync(resolve(root, '.env'), 'utf8').match(/^PIXELLAB_API_KEY=(.+)$/m)?.[1].trim();
 if (!key) throw new Error('PIXELLAB_API_KEY missing from .env');
 
-/** The arena's art direction, shared by every prompt below: bright anime/manga colour, clean cel
- * shading, saturated but not neon. Changed from the first pass, which asked for muted low-contrast
- * ground and came out drab. */
-const STYLE =
-  'vibrant anime style pixel art, bright saturated colours, clean cel shading, crisp readable ' +
-  'shapes, cheerful sunny lighting, high colour contrast, Studio Ghibli meadow palette';
-const ANTI = 'drab, washed out, desaturated, muddy, grey, gloomy, realistic, photo, noisy dithering';
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const AUTH = { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+const TILE_SIZE = 64;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** The arena's look, shared by every call so the three sets belong together. */
+const STYLE =
+  'vibrant anime pixel art, bright saturated colours, clean cel shading, crisp readable shapes, ' +
+  'sunny afternoon light, rich detail';
 
 async function post(path, body) {
   const res = await fetch(`https://api.pixellab.ai/v2/${path}`, {
@@ -32,386 +35,110 @@ async function post(path, body) {
     headers: AUTH,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`POST ${path} -> ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  if (!res.ok) throw new Error(`POST ${path} -> ${res.status}: ${(await res.text()).slice(0, 600)}`);
   return res.json();
 }
 
-/** Polls a collection resource until it stops reporting "processing". */
-async function waitFor(collection, id, pick) {
-  for (let i = 0; i < 60; i++) {
-    const res = await fetch(`https://api.pixellab.ai/v2/${collection}/${id}`, { headers: AUTH });
+/** Pro generations are async and take minutes; 423 means "still working". */
+async function waitForTiles(tileId) {
+  for (let i = 0; i < 150; i++) {
+    const res = await fetch(`https://api.pixellab.ai/v2/tiles-pro/${tileId}`, { headers: AUTH });
     if (res.status === 423) {
-      await sleep(4000);
+      if (i % 10 === 0) console.log(`  … en cours (${i * 6}s)`);
+      await sleep(6000);
       continue;
     }
-    if (!res.ok) throw new Error(`GET ${collection}/${id} -> ${res.status}`);
+    if (!res.ok) throw new Error(`GET tiles-pro/${tileId} -> ${res.status}`);
     const body = await res.json();
-    const value = pick(body);
-    if (value) return value;
-    await sleep(4000);
+    if (body.storage_urls && Object.keys(body.storage_urls).length > 0) return body;
+    await sleep(6000);
   }
-  throw new Error(`timed out waiting for ${collection}/${id}`);
+  throw new Error(`timed out waiting for tiles-pro/${tileId}`);
 }
 
-function savePng(dir, name, base64) {
+async function savePngFromUrl(dir, name, url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`download ${name} -> ${res.status}`);
   const outDir = resolve(root, 'assets/Map', dir);
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(resolve(outDir, `${name}.png`), Buffer.from(base64.replace(/^data:image\/png;base64,/, ''), 'base64'));
-  console.log(`  assets/Map/${dir}/${name}.png`);
+  writeFileSync(resolve(outDir, `${name}.png`), Buffer.from(await res.arrayBuffer()));
 }
 
-// ---------------------------------------------------------------------------------------------
-// Ground: two tones of the SAME grass rather than grass-vs-dirt. The Wang set then blends them in
-// organic patches, which is what stops 6000x6000 units of lawn reading as one flat colour — and it
-// avoids the visible brightness step a grass/dirt pair produced.
-// ---------------------------------------------------------------------------------------------
-async function ground() {
-  console.log('Sol — 3 generations…');
-  const job = await post('create-tileset', {
-    lower_description:
-      'lush bright green anime meadow grass, vivid fresh spring green, fine short blades, sunny, ' +
-      `flat even ground, no flowers, no rocks, no dirt, ${STYLE}`,
-    upper_description:
-      'the same meadow grass one shade lighter and warmer, sunlit yellow-green, fine short blades, ' +
-      `flat even ground, no flowers, no rocks, no dirt, ${STYLE}`,
-    transition_description: 'one shade of grass easing gently into the other, no hard edge',
-    tile_size: { width: 32, height: 32 },
-    mode: 'standard',
-    shape_style: 'round',
-    transition_size: 0,
-    view: 'high top-down',
-    outline: 'lineless',
-    shading: 'basic shading',
-    detail: 'medium detail',
-    seed: 7311,
-  });
-
-  const id = job.tileset?.id ?? job.tileset_id ?? job.id;
-  const tiles = await waitFor('tilesets', id, (b) => (b.tileset ?? b).tiles);
-  for (const tile of tiles) {
-    const c = tile.corners ?? {};
-    const code = ['NW', 'NE', 'SW', 'SE'].map((k) => (c[k] === 'upper' ? '1' : '0')).join('');
-    savePng('ground', `tile-${code}`, tile.image?.base64 ?? tile.base64);
-  }
-  console.log(`  ${tiles.length} tuiles`);
+/** The grass from an already-generated set, passed as a style reference so the next set's grass
+ * comes out the same green. Without this the two sets' meadows differ enough that alternating them
+ * across the field draws a visible chequerboard. */
+function styleFromGrass(dir) {
+  const file = resolve(root, 'assets/Map', dir, 'tile_15.png');
+  return [{ base64: readFileSync(file).toString('base64'), width: TILE_SIZE, height: TILE_SIZE }];
 }
 
-// ---------------------------------------------------------------------------------------------
-// Decor: flat, traversable props scattered over the field. Nothing here ever collides — the user's
-// rule — so they are chosen to read as ground cover, not as objects you would expect to bump into.
-// ---------------------------------------------------------------------------------------------
-const DECOR = [
-  ['daisies', 'three tiny white daisy flower heads'],
-  ['cornflowers', 'three tiny blue cornflower heads'],
-  ['buttercups', 'three tiny yellow buttercup flower heads'],
-  ['pebbles', 'three small flat pale grey pebbles'],
-  ['clover', 'five small green clover leaves'],
-  ['tuft', 'a few dark green grass blades'],
-];
-
-async function decor() {
-  console.log(`Decor — ${DECOR.length} generations…`);
-  for (const [name, description] of DECOR) {
-    const job = await post('create-image-pixflux', {
-      description:
-        `${description}, isolated on an empty transparent background, seen from directly overhead, ` +
-        `completely flat, no height, no volume, no shadow, small, ${STYLE}`,
-      negative_description:
-        `grass background, ground, soil, filled background, scene, bush, shrub, clump, tree, brown, ` +
-        `dead leaves, side view, perspective, drop shadow, dark blob, thick outline, ${ANTI}`,
-      image_size: { width: 32, height: 32 },
-      view: 'high top-down',
-      outline: 'lineless',
-      shading: 'flat shading',
-      detail: 'low detail',
-      no_background: true,
-      text_guidance_scale: 11,
-      seed: 4090,
-    });
-    const b64 =
-      job.image?.base64 ??
-      (job.image_id || job.id
-        ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-        : null);
-    if (!b64) throw new Error(`no image for ${name}: ${Object.keys(job)}`);
-    savePng('decor', name, b64);
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Border: the arena edge. Decorative only — the collision stays the server's rectangle.
-// ---------------------------------------------------------------------------------------------
-async function border() {
-  console.log('Bordure — 1 generation…');
-  const job = await post('create-image-pixflux', {
-    description:
-      'a horizontal strip of bright stone blocks forming the low edge wall of a field, seen from a ' +
-      `high top-down angle, vivid green moss between the stones, tileable left to right, ${STYLE}`,
-    negative_description: `grass field, sky, gate, tower, perspective, vanishing point, ${ANTI}`,
-    image_size: { width: 64, height: 32 },
-    view: 'high top-down',
-    outline: 'selective outline',
-    shading: 'basic shading',
-    detail: 'medium detail',
-    no_background: true,
-    text_guidance_scale: 9,
-    seed: 4090,
-  });
-  const b64 =
-    job.image?.base64 ??
-    (job.image_id || job.id
-      ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-      : null);
-  if (!b64) throw new Error(`no image: ${Object.keys(job)}`);
-  savePng('border', 'wall', b64);
-}
-
-
-// ---------------------------------------------------------------------------------------------
-// A single large grass texture. The 32px tileset repeated a small motif in a grid you could read
-// across the whole field; at 400px the same motif is 12x rarer, and the renderer mirror-tiles it,
-// which doubles the period again without a seam.
-// ---------------------------------------------------------------------------------------------
-async function field() {
-  console.log('Herbe — 1 generation…');
-  const job = await post('create-image-pixflux', {
-    description:
-      'a large flat expanse of lush temperate meadow grass seen from directly overhead, ' +
-      'medium desaturated green, fine short even blades, soft late afternoon light, ' +
-      'uniform texture with no landmarks, very low contrast, pixel art',
-    negative_description:
-      'flowers, rocks, path, dirt, water, tree, shadow, object, pattern, repeating motif, ' +
-      'stripes, tiles, grid, border, vignette',
-    image_size: { width: 400, height: 400 },
-    view: 'high top-down',
-    outline: 'lineless',
-    shading: 'flat shading',
-    detail: 'low detail',
-    text_guidance_scale: 8,
-    seed: 4090,
-  });
-  const b64 =
-    job.image?.base64 ??
-    (job.image_id || job.id
-      ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-      : null);
-  if (!b64) throw new Error(`no image: ${Object.keys(job)}`);
-  savePng('ground', 'field', b64);
-}
-
-
-// ---------------------------------------------------------------------------------------------
-// Region materials and landmarks, generated with the knight as a STYLE REFERENCE so the arena and
-// the characters come out of the same hand. create-image-bitforge is the endpoint that takes one:
-// style_image plus style_strength, 1 generation, max 200x200.
-//
-// Everything here is flat and traversable. The user's rule stands: no obstacles anywhere.
-// ---------------------------------------------------------------------------------------------
-const KNIGHT_REF = 'assets/Character/Chevalier/un_chevalier_de_jeu_video/Idle/rotations/south.png';
-
-function knightStyle() {
+/** Common request shape: flat top-down ground, no depth, no outlines. */
+function tileRequest(description, feature, styleImages) {
   return {
-    type: 'base64',
-    base64: readFileSync(resolve(root, KNIGHT_REF)).toString('base64'),
-    format: 'png',
+    ...(styleImages ? { style_images: styleImages } : {}),
+    description,
+    tile_type: 'square_topdown',
+    tile_size: TILE_SIZE,
+    // Ground is seen straight down and has no thickness — any depth would make the floor read as a
+    // stack of slabs with visible sides.
+    tile_view: 'top-down',
+    tile_depth_ratio: 0,
+    // Colour zones rather than grey outlines: outlines on a floor look like drawn borders.
+    outline_mode: 'segmentation',
+    ...(feature ? { tile_feature: feature } : {}),
+    seed: 20260905,
   };
 }
 
-const MATERIALS = [
-  ['stone', 'a floor of large flat pale flagstones with bright turquoise moss in the joints'],
-  ['moss', 'thick vivid emerald moss carpet, lush and springy'],
-  ['sand', 'warm golden sand, clean and bright'],
-  ['water', 'clear shallow turquoise water, bright and sparkling, gentle ripples'],
-  ['path', 'a sunlit track of warm sandy earth with pale pebbles'],
-];
+async function generate(dir, description, feature, styleImages) {
+  console.log(`${dir} — generation Pro (~40 credits)…`);
+  const job = await post('create-tiles-pro', tileRequest(description, feature, styleImages));
+  const tileId = job.tile_id;
+  console.log(`  tile_id ${tileId}`);
+  const body = await waitForTiles(tileId);
 
-async function materials() {
-  console.log(`Materiaux — ${MATERIALS.length} generations…`);
-  const style = knightStyle();
-  for (const [name, description] of MATERIALS) {
-    const job = await post('create-image-bitforge', {
-      description: `${description}, seen from directly overhead, flat ground texture filling the whole image, ${STYLE}`,
-      negative_description: `character, object, plant, wall, edge, border, frame, vignette, perspective, horizon, ${ANTI}`,
-      image_size: { width: 64, height: 64 },
-      // The knight is dark and desaturated; leaning on it as a style reference is what dragged the
-      // first pass drab. Keep a light touch so the palette can be bright.
-      style_image: style,
-      style_strength: 15,
-      view: 'high top-down',
-      outline: 'lineless',
-      shading: 'basic shading',
-      detail: 'medium detail',
-      text_guidance_scale: 9,
-      seed: 7311,
-    });
-    const b64 =
-      job.image?.base64 ??
-      (job.image_id || job.id
-        ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-        : null);
-    if (!b64) throw new Error(`no image for ${name}: ${Object.keys(job)}`);
-    savePng('material', name, b64);
-  }
+  const outDir = resolve(root, 'assets/Map', dir);
+  mkdirSync(outDir, { recursive: true });
+  // The placement rules say which corners of each tile are the second terrain; the renderer needs
+  // them to pick a tile, so they are written out beside the art rather than re-derived.
+  writeFileSync(
+    resolve(outDir, 'rules.json'),
+    JSON.stringify({ kind: body.kind, tile_rules: body.tile_rules ?? null }, null, 2)
+  );
+
+  const entries = Object.entries(body.storage_urls);
+  for (const [k, url] of entries) await savePngFromUrl(dir, k, url);
+  console.log(`  ${entries.length} tuiles -> assets/Map/${dir}`);
+  console.log(`  regles: ${JSON.stringify(body.tile_rules).slice(0, 300)}`);
+  return body;
 }
 
-const LANDMARKS = [
-  ['column', 'a broken stone column lying on its side, cracked, mossy'],
-  ['bones', 'a scattered pile of old bleached bones and a cracked skull'],
-  ['banner', 'a tattered dark cloth banner lying flat on the ground'],
-  ['runes', 'a ring of carved stone runes set flush into the ground, faintly glowing'],
-];
+const GRASS = 'lush bright green meadow grass, fine blades, fresh spring green';
 
-async function landmarks() {
-  console.log(`Reperes — ${LANDMARKS.length} generations…`);
-  const style = knightStyle();
-  for (const [name, description] of LANDMARKS) {
-    const job = await post('create-image-bitforge', {
-      description: `${description}, isolated on an empty transparent background, seen from directly overhead, lying flat on the ground, pixel art`,
-      negative_description: 'grass background, ground, filled background, scene, standing upright, side view, perspective, tall, casting shadow',
-      image_size: { width: 64, height: 64 },
-      style_image: style,
-      style_strength: 55,
-      view: 'high top-down',
-      outline: 'selective outline',
-      shading: 'basic shading',
-      detail: 'medium detail',
-      no_background: true,
-      text_guidance_scale: 9,
-      seed: 4090,
-    });
-    const b64 =
-      job.image?.base64 ??
-      (job.image_id || job.id
-        ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-        : null);
-    if (!b64) throw new Error(`no image for ${name}: ${Object.keys(job)}`);
-    savePng('landmark', name, b64);
-  }
-}
-
-
-// ---------------------------------------------------------------------------------------------
-// Terrain sets for the composed arena: grass->stone for the plaza and its paths, grass->water for
-// the ponds. A Wang set draws a BOUNDARY between its two terrains, which was wrong when both were
-// grass (see ground.ts) but is exactly right here — a paved plaza should have an edge.
-//
-// The water set is chained to the stone set's grass tile so the grass is literally the same art in
-// both, instead of two near-misses that would show as patches wherever they met.
-// ---------------------------------------------------------------------------------------------
-const GRASS_DESC =
-  'lush bright green anime meadow grass, vivid fresh spring green, fine short blades, sunny, ' +
-  'flat even ground, no flowers, no rocks';
-
-async function stoneSet() {
-  console.log('Pierre — 3 generations…');
-
-  const stoneJob = await post('create-tileset', {
-    lower_description: `${GRASS_DESC}, ${STYLE}`,
-    upper_description:
-      'a paved floor of large cut grey stone slabs, light warm grey masonry with darker joints ' +
-      'between the blocks, absolutely no grass and no green, dry and swept clean, flat and ' +
-      'walkable, vibrant anime style pixel art, clean cel shading, crisp readable shapes',
-    transition_description: 'the last blades of grass meeting the cut edge of the grey paving',
-    tile_size: { width: 32, height: 32 },
-    mode: 'standard',
-    shape_style: 'round',
-    // The first two attempts came back with grass for BOTH terrains. enhance lets the model rewrite
-    // the descriptions and pick base colours to match, which is the documented cure for exactly this.
-    enhance: true,
-    transition_size: 0.25,
-    view: 'high top-down',
-    outline: 'lineless',
-    shading: 'basic shading',
-    detail: 'medium detail',
-    seed: 991,
-  });
-  const stoneId = stoneJob.tileset?.id ?? stoneJob.tileset_id ?? stoneJob.id;
-  const stoneTiles = await waitFor('tilesets', stoneId, (b) => (b.tileset ?? b).tiles);
-  let grassBaseId = null;
-  for (const tile of stoneTiles) {
-    const c = tile.corners ?? {};
-    const code = ['NW', 'NE', 'SW', 'SE'].map((k) => (c[k] === 'upper' ? '1' : '0')).join('');
-    if (code === '0000') grassBaseId = tile.id ?? null;
-    savePng('stone', `tile-${code}`, tile.image?.base64 ?? tile.base64);
-  }
-  console.log(`  pierre: ${stoneTiles.length} tuiles`);
-  return grassBaseId;
-}
-
-async function waterSet(grassBaseId) {
-  console.log('Eau — 3 generations…');
-  const waterJob = await post('create-tileset', {
-    lower_description: `${GRASS_DESC}, ${STYLE}`,
-    upper_description:
-      'clear shallow turquoise water over a pale sandy bed, bright and sparkling, gentle ripples, ' +
-      `${STYLE}`,
-    transition_description: 'grass giving way to a wet sandy shore at the water line',
-    lower_base_tile_id: grassBaseId ?? undefined,
-    tile_size: { width: 32, height: 32 },
-    mode: 'standard',
-    shape_style: 'round',
-    transition_size: 0.25,
-    view: 'high top-down',
-    outline: 'lineless',
-    shading: 'basic shading',
-    detail: 'medium detail',
-    seed: 7311,
-  });
-  const waterId = waterJob.tileset?.id ?? waterJob.tileset_id ?? waterJob.id;
-  const waterTiles = await waitFor('tilesets', waterId, (b) => (b.tileset ?? b).tiles);
-  for (const tile of waterTiles) {
-    const c = tile.corners ?? {};
-    const code = ['NW', 'NE', 'SW', 'SE'].map((k) => (c[k] === 'upper' ? '1' : '0')).join('');
-    savePng('water', `tile-${code}`, tile.image?.base64 ?? tile.base64);
-  }
-  console.log(`  eau: ${waterTiles.length} tuiles`);
-}
-
-
-// ---------------------------------------------------------------------------------------------
-// A plain stone texture, tiled by the renderer which draws the plaza's edge itself.
-//
-// This replaces a grass->stone Wang set that was attempted three times (9 generations) and failed
-// the same way every time: the "upper" terrain came back as a flat green fill with no masonry at
-// all, whatever the description said. The water set generated from the same call shape worked
-// first time, so the fault is specific to that pairing — don't retry it.
-// ---------------------------------------------------------------------------------------------
-async function stone() {
-  console.log('Pierre — 1 generation…');
-  const job = await post('create-image-pixflux', {
-    description:
-      'a seamless paved floor of large cut grey stone slabs, light warm grey masonry with darker ' +
-      'joints between the blocks, dry and swept, seen from directly overhead, filling the entire ' +
-      'image edge to edge, vibrant anime style pixel art, clean cel shading',
-    negative_description:
-      'grass, green, moss, plant, dirt, water, border, frame, edge of the paving, vignette, object, character',
-    image_size: { width: 64, height: 64 },
-    view: 'high top-down',
-    outline: 'lineless',
-    shading: 'basic shading',
-    detail: 'medium detail',
-    text_guidance_scale: 10,
-    seed: 991,
-  });
-  const b64 =
-    job.image?.base64 ??
-    (job.image_id || job.id
-      ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
-      : null);
-  if (!b64) throw new Error('no image');
-  savePng('stone', 'slab', b64);
-}
+const groups = {
+  stone: () =>
+    generate(
+      'stone',
+      `1) ${GRASS} 2) a floor of large pale grey cut stone slabs with darker joints, swept clean, ` +
+        `no grass on the stone. ${STYLE}`,
+      'tileset'
+    ),
+  water: () =>
+    generate(
+      'water',
+      `1) ${GRASS} 2) clear shallow turquoise water over a pale sandy bed, gentle ripples. ${STYLE}`,
+      'tileset',
+      styleFromGrass('stone')
+    ),
+};
 
 const which = process.argv[2];
-async function terrain() {
-  const grassBaseId = await stoneSet();
-  await waterSet(grassBaseId);
-}
-
-const groups = { ground, decor, border, field, materials, landmarks, terrain, stoneSet, stone };
-if (!groups[which]) {
-  console.error('usage: node scripts/pixellab-map.mjs <ground|decor|border>');
+if (which === 'all') {
+  for (const run of Object.values(groups)) await run();
+} else if (groups[which]) {
+  await groups[which]();
+} else {
+  console.error(`usage: node scripts/pixellab-map.mjs <${Object.keys(groups).join('|')}|all>`);
   process.exit(1);
 }
-await groups[which]();
 console.log('ok');

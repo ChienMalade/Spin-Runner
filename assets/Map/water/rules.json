@@ -1,0 +1,68 @@
+{
+  "kind": "tileset",
+  "tile_rules": {
+    "arity": 4,
+    "tiles": {
+      "tile_0": {
+        "mask": 0
+      },
+      "tile_1": {
+        "mask": 1
+      },
+      "tile_2": {
+        "mask": 2
+      },
+      "tile_3": {
+        "mask": 3
+      },
+      "tile_4": {
+        "mask": 4
+      },
+      "tile_5": {
+        "mask": 5
+      },
+      "tile_6": {
+        "mask": 6
+      },
+      "tile_7": {
+        "mask": 7
+      },
+      "tile_8": {
+        "mask": 8
+      },
+      "tile_9": {
+        "mask": 9
+      },
+      "tile_10": {
+        "mask": 10
+      },
+      "tile_11": {
+        "mask": 11
+      },
+      "tile_12": {
+        "mask": 12
+      },
+      "tile_13": {
+        "mask": 13
+      },
+      "tile_14": {
+        "mask": 14
+      },
+      "tile_15": {
+        "mask": 15
+      }
+    },
+    "step_px": 0,
+    "frame_px": 64,
+    "terrains": [
+      "1) lush bright green meadow grass",
+      "fine blades, fresh spring green 2) clear shallow turquoise water over a pale sandy bed, gentle ripples. vibrant anime pixel art, bright saturated colours, clean cel shading, crisp readable shapes, sunny afternoon light, rich detail"
+    ],
+    "elevation": 0,
+    "rule_type": "corner",
+    "step_slope": 0,
+    "top_face_px": 64,
+    "boundary_seed": 0,
+    "boundary_amplitude": 0
+  }
+}

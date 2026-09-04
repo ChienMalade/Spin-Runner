@@ -1,16 +1,5 @@
 import { Asset } from 'expo-asset';
-import {
-  BORDER_SPRITE,
-  CHARACTERS,
-  DECOR_NAMES,
-  DECOR_SPRITES,
-  DIRECTIONS,
-  GROUND_TILES,
-  STONE_SLAB,
-  WATER_TILES,
-  WEAPON_SPRITES,
-  type Direction8,
-} from '@/game/phaser/spriteAssets';
+import { CHARACTERS, DIRECTIONS, TERRAIN_TILES, WEAPON_SPRITES, type Direction8 } from '@/game/phaser/spriteAssets';
 import { CHARACTER_IDS, type CharacterId } from '@/net/protocol';
 
 export const idleKey = (char: CharacterId, dir: Direction8) => `${char}-idle-${dir}`;
@@ -18,13 +7,12 @@ export const runKey = (char: CharacterId, dir: Direction8, frame: number) => `${
 export const dashKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-dash-${dir}-${frame}`;
 export const weaponKey = (char: CharacterId) => `weapon-${char}`;
 
-/** Arena art. These never become Phaser textures: the scene paints them once into a single ground
- * image, so they are handed back as raw images rather than registered individually. */
-export const groundKey = (corners: string) => `ground-${corners}`;
-export const waterKey = (corners: string) => `water-${corners}`;
-export const STONE_TEXTURE = 'stone-slab';
-export const decorKey = (name: string) => `decor-${name}`;
-export const BORDER_TEXTURE = 'border-wall';
+/** Arena floor art. These never become Phaser textures: the scene paints them once into a single
+ * ground image, so they are handed back as raw images rather than registered individually. */
+export const stoneKey = (mask: number) => `stone-${mask}`;
+export const waterKey = (mask: number) => `water-${mask}`;
+/** The two all-grass tiles, one from each terrain set — the meadow's two faces. */
+export const grassKey = (variant: number) => `grass-${variant}`;
 
 /** Loads every character/sword PNG into plain HTMLImageElements, keyed by the texture name the
  * scene will register them under.
@@ -34,12 +22,16 @@ export const BORDER_TEXTURE = 'border-wall';
  * the scene never reaches create(). Loading them here and handing the scene ready-made images via
  * `textures.addImage` sidesteps that entirely, and lets the game boot only once the art is ready. */
 export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>> {
-  const wanted: [string, number][] = [[BORDER_TEXTURE, BORDER_SPRITE]];
+  const wanted: [string, number][] = [];
   for (const char of CHARACTER_IDS) wanted.push([weaponKey(char), WEAPON_SPRITES[char]]);
-  for (const [corners, mod] of Object.entries(GROUND_TILES)) wanted.push([groundKey(corners), mod]);
-  for (const [corners, mod] of Object.entries(WATER_TILES)) wanted.push([waterKey(corners), mod]);
-  wanted.push([STONE_TEXTURE, STONE_SLAB]);
-  for (const name of DECOR_NAMES) wanted.push([decorKey(name), DECOR_SPRITES[name]]);
+  for (let mask = 0; mask < 16; mask++) {
+    wanted.push([stoneKey(mask), TERRAIN_TILES.stone[mask]]);
+    wanted.push([waterKey(mask), TERRAIN_TILES.water[mask]]);
+  }
+  // Mask 15 of each set is that set's all-grass tile; the two differ because they came from
+  // separate generations, which is exactly the variety the meadow needs.
+  wanted.push([grassKey(0), TERRAIN_TILES.stone[15]]);
+  wanted.push([grassKey(1), TERRAIN_TILES.water[15]]);
   for (const char of CHARACTER_IDS) {
     const sprites = CHARACTERS[char];
     for (const dir of DIRECTIONS) {

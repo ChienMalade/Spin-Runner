@@ -26,18 +26,9 @@ const WEAPONS = {
     'assets/Character/une_batte_de_baseball_vertical/une_batte_de_baseball_vertical/rotations/une_batte_de_baseball_vertical.png',
 };
 
-// Arena art. Only the single-tone ground tile ships — see ground.ts for why the two-tone Wang blend
-// was generated and then dropped. The decor is flat, traversable ground cover; the border is the
-// field's edge wall, decorative only.
-const GROUND_DIR = 'assets/Map/ground';
-/** Water is a 16-tile Wang set over the grass, so its lakes get real shores. Stone is a single
- * seamless texture whose edge the renderer draws itself — see scripts/pixellab-map.mjs for why a
- * Wang set was not used for it. */
-const WATER_DIR = 'assets/Map/water';
-const STONE_SLAB = 'assets/Map/stone/slab.png';
-const DECOR_DIR = 'assets/Map/decor';
-const DECOR_NAMES = ['daisies', 'cornflowers', 'buttercups', 'pebbles', 'clover', 'tuft'];
-const BORDER = 'assets/Map/border/wall.png';
+// Arena floor art: two 16-tile Wang sets over the same grass, from scripts/pixellab-map.mjs. Files
+// are named tile_<mask>, the mask being which corners are grass (NW 8, NE 4, SW 2, SE 1).
+const TERRAIN_DIRS = { stone: 'assets/Map/stone', water: 'assets/Map/water' };
 
 const CHARACTERS = [
   {
@@ -119,29 +110,15 @@ ${animation(c.dash, 4)}
 }
 
 
-const groundEntries = fs
-  .readdirSync(path.join(ROOT, GROUND_DIR))
-  .filter((f) => f.endsWith('.png'))
-  .sort()
-  .map((f) => {
-    const code = f.replace(/^tile-/, '').replace(/\.png$/, '');
-    return `  '${code}': ${requireLine(`${GROUND_DIR}/${f}`)},`;
+const terrainEntries = Object.entries(TERRAIN_DIRS)
+  .map(([name, dir]) => {
+    const rows = [];
+    for (let mask = 0; mask < 16; mask++) {
+      rows.push(`    ${mask}: ${requireLine(`${dir}/tile_${mask}.png`)},`);
+    }
+    return `  ${name}: {\n${rows.join('\n')}\n  },`;
   })
   .join('\n');
-
-const waterEntries = fs
-  .readdirSync(path.join(ROOT, WATER_DIR))
-  .filter((f) => f.endsWith('.png'))
-  .sort()
-  .map((f) => {
-    const code = f.replace(/^tile-/, '').replace(/\.png$/, '');
-    return `  '${code}': ${requireLine(`${WATER_DIR}/${f}`)},`;
-  })
-  .join('\n');
-
-const decorEntries = DECOR_NAMES.map(
-  (name) => `  '${name}': ${requireLine(`${DECOR_DIR}/${name}.png`)},`
-).join('\n');
 
 const weaponEntries = CHARACTERS.map((c) => {
   const file = WEAPONS[c.id];
@@ -191,28 +168,12 @@ ${blocks}
 export const WEAPON_SPRITES: Record<CharacterId, number> = {
 ${weaponEntries}
 };
-/** Ground tiles, keyed by their four corners as NW/NE/SW/SE, '1' meaning the second grass tone.
- * The renderer builds a corner grid over the arena and looks each cell's four corners up here. */
-export const GROUND_TILES: Record<string, number> = {
-${groundEntries}
+/** The two terrain sets, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
+ * Mask 15 is all grass — the renderer takes its base meadow from each set's mask 15 — and mask 0 is
+ * all of the other terrain. */
+export const TERRAIN_TILES: Record<'stone' | 'water', Record<number, number>> = {
+${terrainEntries}
 };
-
-/** Water tiles, keyed the same way — '1' meaning water at that corner, so lakes get real shores. */
-export const WATER_TILES: Record<string, number> = {
-${waterEntries}
-};
-
-/** The plaza and its paths. One seamless texture; the renderer draws the edge. */
-export const STONE_SLAB: number = ${requireLine(STONE_SLAB)};
-
-/** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */
-export const DECOR_SPRITES: Record<string, number> = {
-${decorEntries}
-};
-export const DECOR_NAMES: string[] = [${DECOR_NAMES.map((d) => `'${d}'`).join(', ')}];
-
-/** The field's edge wall. Decorative: the real boundary is the server's rectangle. */
-export const BORDER_SPRITE: number = ${requireLine(BORDER)};
 `;
 
 fs.writeFileSync(OUT, out);

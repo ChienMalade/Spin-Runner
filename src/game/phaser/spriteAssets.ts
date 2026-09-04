@@ -585,45 +585,44 @@ export const WEAPON_SPRITES: Record<CharacterId, number> = {
   pablo: require('../../../assets/Character/épée pablo/une_epee_en_jouet_verticale/rotations/une_epee_en_jouet_verticale.png'),
   sahur: require('../../../assets/Character/une_batte_de_baseball_vertical/une_batte_de_baseball_vertical/rotations/une_batte_de_baseball_vertical.png'),
 };
-/** Ground tiles, keyed by their four corners as NW/NE/SW/SE, '1' meaning the second grass tone.
- * The renderer builds a corner grid over the arena and looks each cell's four corners up here. */
-export const GROUND_TILES: Record<string, number> = {
-  '0000': require('../../../assets/Map/ground/tile-0000.png'),
+/** The two terrain sets, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
+ * Mask 15 is all grass — the renderer takes its base meadow from each set's mask 15 — and mask 0 is
+ * all of the other terrain. */
+export const TERRAIN_TILES: Record<'stone' | 'water', Record<number, number>> = {
+  stone: {
+    0: require('../../../assets/Map/stone/tile_0.png'),
+    1: require('../../../assets/Map/stone/tile_1.png'),
+    2: require('../../../assets/Map/stone/tile_2.png'),
+    3: require('../../../assets/Map/stone/tile_3.png'),
+    4: require('../../../assets/Map/stone/tile_4.png'),
+    5: require('../../../assets/Map/stone/tile_5.png'),
+    6: require('../../../assets/Map/stone/tile_6.png'),
+    7: require('../../../assets/Map/stone/tile_7.png'),
+    8: require('../../../assets/Map/stone/tile_8.png'),
+    9: require('../../../assets/Map/stone/tile_9.png'),
+    10: require('../../../assets/Map/stone/tile_10.png'),
+    11: require('../../../assets/Map/stone/tile_11.png'),
+    12: require('../../../assets/Map/stone/tile_12.png'),
+    13: require('../../../assets/Map/stone/tile_13.png'),
+    14: require('../../../assets/Map/stone/tile_14.png'),
+    15: require('../../../assets/Map/stone/tile_15.png'),
+  },
+  water: {
+    0: require('../../../assets/Map/water/tile_0.png'),
+    1: require('../../../assets/Map/water/tile_1.png'),
+    2: require('../../../assets/Map/water/tile_2.png'),
+    3: require('../../../assets/Map/water/tile_3.png'),
+    4: require('../../../assets/Map/water/tile_4.png'),
+    5: require('../../../assets/Map/water/tile_5.png'),
+    6: require('../../../assets/Map/water/tile_6.png'),
+    7: require('../../../assets/Map/water/tile_7.png'),
+    8: require('../../../assets/Map/water/tile_8.png'),
+    9: require('../../../assets/Map/water/tile_9.png'),
+    10: require('../../../assets/Map/water/tile_10.png'),
+    11: require('../../../assets/Map/water/tile_11.png'),
+    12: require('../../../assets/Map/water/tile_12.png'),
+    13: require('../../../assets/Map/water/tile_13.png'),
+    14: require('../../../assets/Map/water/tile_14.png'),
+    15: require('../../../assets/Map/water/tile_15.png'),
+  },
 };
-
-/** Water tiles, keyed the same way — '1' meaning water at that corner, so lakes get real shores. */
-export const WATER_TILES: Record<string, number> = {
-  '0000': require('../../../assets/Map/water/tile-0000.png'),
-  '0001': require('../../../assets/Map/water/tile-0001.png'),
-  '0010': require('../../../assets/Map/water/tile-0010.png'),
-  '0011': require('../../../assets/Map/water/tile-0011.png'),
-  '0100': require('../../../assets/Map/water/tile-0100.png'),
-  '0101': require('../../../assets/Map/water/tile-0101.png'),
-  '0110': require('../../../assets/Map/water/tile-0110.png'),
-  '0111': require('../../../assets/Map/water/tile-0111.png'),
-  '1000': require('../../../assets/Map/water/tile-1000.png'),
-  '1001': require('../../../assets/Map/water/tile-1001.png'),
-  '1010': require('../../../assets/Map/water/tile-1010.png'),
-  '1011': require('../../../assets/Map/water/tile-1011.png'),
-  '1100': require('../../../assets/Map/water/tile-1100.png'),
-  '1101': require('../../../assets/Map/water/tile-1101.png'),
-  '1110': require('../../../assets/Map/water/tile-1110.png'),
-  '1111': require('../../../assets/Map/water/tile-1111.png'),
-};
-
-/** The plaza and its paths. One seamless texture; the renderer draws the edge. */
-export const STONE_SLAB: number = require('../../../assets/Map/stone/slab.png');
-
-/** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */
-export const DECOR_SPRITES: Record<string, number> = {
-  'daisies': require('../../../assets/Map/decor/daisies.png'),
-  'cornflowers': require('../../../assets/Map/decor/cornflowers.png'),
-  'buttercups': require('../../../assets/Map/decor/buttercups.png'),
-  'pebbles': require('../../../assets/Map/decor/pebbles.png'),
-  'clover': require('../../../assets/Map/decor/clover.png'),
-  'tuft': require('../../../assets/Map/decor/tuft.png'),
-};
-export const DECOR_NAMES: string[] = ['daisies', 'cornflowers', 'buttercups', 'pebbles', 'clover', 'tuft'];
-
-/** The field's edge wall. Decorative: the real boundary is the server's rectangle. */
-export const BORDER_SPRITE: number = require('../../../assets/Map/border/wall.png');
