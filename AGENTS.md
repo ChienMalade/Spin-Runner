@@ -49,15 +49,24 @@ the Render dashboard logs for "Your service is live".
   prototype). Keep both in sync by hand when the protocol changes.
 - `src/game/PhaserCanvas.tsx` — boots the Phaser game into a DOM node and tears it down; web-only
   (Phaser needs a real `<canvas>`, so native builds render nothing).
-- `src/game/phaser/mainScene.ts` — **the renderer**: ground, characters + animations, swords,
-  shield outline, particles/bursts, camera, screen shake. Reads `useGameStore.getState()` every
-  frame; nothing here goes through React.
+- `src/game/phaser/mainScene.ts` — **the renderer**: characters + animations, swords, status auras,
+  particles/bursts, camera, screen shake, cloud shadows, vignette. Reads `useGameStore.getState()`
+  every frame; nothing here goes through React.
+- `src/game/phaser/ground.ts` — paints the whole arena floor (grass, ground cover, edge wall) into
+  ONE canvas texture, drawn in a single call. Read the comments before touching it: a two-tone Wang
+  grass set and a 400px single grass texture were both generated, judged and dropped, and the file
+  says why. Its hash uses `Math.imul` on purpose — the previous one multiplied past 2^53, lost its
+  low bits, and made the scattered blades line up into diagonal streaks across the field.
 - `src/game/phaser/loadSprites.ts` — loads the character/sword PNGs by hand. Phaser's own loader
   caps at 32 parallel files and **stalls** partway through the ~150 frames here (queue full, none
   in flight, no error, scene never reaches `create()`), so don't switch back to `this.load.image`.
 - `src/game/phaser/spriteAssets.ts` — **generated**, do not hand-edit. Run `npm run generate:sprites`
-  after changing anything in `assets/Character`. Metro needs a literal `require()` per file, hence
-  the generation.
+  after changing anything in `assets/Character` or `assets/Map`. Metro needs a literal `require()`
+  per file, hence the generation. `CharacterId` comes from the protocol, and CHARACTERS is typed as
+  a full Record over it — so listing a character in the protocol without adding its art is a compile
+  error, not a crash in the arena.
+- `scripts/pixellab-map.mjs` — regenerates the arena art through the PixelLab API. **Costs credits**
+  (the key is in `.env`, git-ignored). Run one group at a time: `ground`, `decor`, `border`.
 - `src/game/GameCanvas.tsx` — the OLD React Native View renderer. No longer mounted anywhere;
   kept only as a reference while the Phaser port settles. Safe to delete once nothing is missed.
 - `src/ui/HealthBar.tsx` — HP bar + dash-charge bar (now unified blue, no yellow).
@@ -90,15 +99,24 @@ the Render dashboard logs for "Your service is live".
   keeps escaping until it's 380 units clear, changing heading every 350ms if something blocks it.
   Both of those were measured with a throwaway `ws` probe; re-measure if you touch it.
 - **Characters**: 8-directional 64x64 pixel art (idle rotations + run and dash animations) under
-  `assets/Character`. Only the knight exists so far; the user intends a roster, and picking a
-  character is meant to replace picking a colour in the lobby.
-- **Visuals**: animated lightning was dropped with the sprite swords. Shield shows as a **pixel
-  outline**: the sprite stamped 8 times behind the character, offsets measured in pixels of the
-  SOURCE art (screen-pixel offsets vanish once art is upscaled 3-4x), with `TintMode.FILL` —
-  plain `setTint` multiplies and turns the near-black armour navy instead of bright blue. This is
-  silhouette-based, so any future character gets a correct outline with nothing to configure.
+  `assets/Character`. Two so far, the knight and Pablo, picked in the lobby — the colour swatches
+  are gone, and the hue is now assigned at random purely for the leaderboard dots. Bots pick at
+  random. Both characters' opaque bounding boxes match to within a pixel, which is why one vertical
+  offset constant still covers them; check that again before adding a differently-proportioned one.
+- **Status auras**: a bonus shows as a **pixel outline** hugging the character: the sprite stamped 8
+  times behind them, offsets measured in pixels of the SOURCE art (screen-pixel offsets vanish once
+  art is upscaled 3-4x), with `TintMode.FILL` — plain `setTint` multiplies and turns the near-black
+  armour navy instead of bright blue. Silhouette-based, so any future character gets a correct
+  outline with nothing to configure. Up to **three concentric rings** show at once, one flat colour
+  each (never blended): blue shield, green speed, and one-second flashes for heart (red), sword
+  upgrade (yellow) and spin (purple). Shield and speed blink through their last second, each on its
+  own clock. With one bonus active every ring takes its colour, which reads as a single thick glow.
   **A user preference to know**: don't change how existing effects/animations look or feel when
   asked to optimize performance — safe wins only.
+- **The floor**: real art, baked once into a single 2816x2816 texture (see `ground.ts`). Drop
+  shadows under every character, drifting cloud shadows and a screen vignette are all code, no art.
+  A hard rule from the user: **no obstacles** — every decoration is flat and traversable, and the
+  collision boundary stays the server's rectangle.
 - **Pixel art must stay crisp**: the game runs with `pixelArt: true` and every texture forced to
   `FilterMode.NEAREST`. Without it, characters blur badly as they grow (default bilinear upscaling).
 - **Error boundary**: `src/ui/ErrorBoundary.tsx` wraps the app — an uncaught render error shows a
