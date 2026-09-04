@@ -412,6 +412,21 @@ export const SWORD_SPRITE: number = require('../../../assets/Character/Chevalier
  * The renderer builds a corner grid over the arena and looks each cell's four corners up here. */
 export const GROUND_TILES: Record<string, number> = {
   '0000': require('../../../assets/Map/ground/tile-0000.png'),
+  '0001': require('../../../assets/Map/ground/tile-0001.png'),
+  '0010': require('../../../assets/Map/ground/tile-0010.png'),
+  '0011': require('../../../assets/Map/ground/tile-0011.png'),
+  '0100': require('../../../assets/Map/ground/tile-0100.png'),
+  '0101': require('../../../assets/Map/ground/tile-0101.png'),
+  '0110': require('../../../assets/Map/ground/tile-0110.png'),
+  '0111': require('../../../assets/Map/ground/tile-0111.png'),
+  '1000': require('../../../assets/Map/ground/tile-1000.png'),
+  '1001': require('../../../assets/Map/ground/tile-1001.png'),
+  '1010': require('../../../assets/Map/ground/tile-1010.png'),
+  '1011': require('../../../assets/Map/ground/tile-1011.png'),
+  '1100': require('../../../assets/Map/ground/tile-1100.png'),
+  '1101': require('../../../assets/Map/ground/tile-1101.png'),
+  '1110': require('../../../assets/Map/ground/tile-1110.png'),
+  '1111': require('../../../assets/Map/ground/tile-1111.png'),
 };
 
 /** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */

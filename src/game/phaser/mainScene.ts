@@ -70,9 +70,9 @@ const AURA_FLASH_MS = 1000;
  * that. With a single bonus active every band takes its colour, which reads as one thick glow with
  * a soft falloff — the same look the shield had before. */
 const AURA_BANDS = [
-  { texels: 1.8, alpha: 1 },
-  { texels: 3.9, alpha: 0.62 },
-  { texels: 6.0, alpha: 0.4 },
+  { texels: 1.3, alpha: 1 },
+  { texels: 2.7, alpha: 0.6 },
+  { texels: 4.2, alpha: 0.38 },
 ];
 const AURA_MAX_BANDS = AURA_BANDS.length;
 
