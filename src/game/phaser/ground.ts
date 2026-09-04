@@ -1,5 +1,5 @@
 import { DECOR_NAMES } from '@/game/phaser/spriteAssets';
-import { decorKey, groundKey } from '@/game/phaser/loadSprites';
+import { decorKey, groundKey, STONE_TEXTURE, waterKey } from '@/game/phaser/loadSprites';
 
 /** Source pixels per ground tile — the tileset is generated at this size. */
 export const GROUND_TILE_PX = 32;
@@ -51,6 +51,23 @@ function meanColor(img: HTMLImageElement): [number, number, number] {
   return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
 }
 
+// --- the arena's layout ------------------------------------------------------------------------
+// Fractions of the arena, so the plan holds whatever size the arena is. A uniform field gave players
+// nothing to navigate by; a plaza at the centre with four roads out of it and lakes off the axes
+// gives every part of the map an address.
+const PLAZA_RADIUS = 0.115;
+const PLAZA_WOBBLE = 0.1; // how irregular the plaza's rim is, as a fraction of its radius
+const ROAD_HALF_WIDTH = 0.026;
+/** Sub-divisions per tile used when clipping the paving, so its edge is not a coarse staircase. */
+const STONE_EDGE_STEPS = 4;
+/** Lakes, as [x, y, radius] in arena fractions. Placed off the roads so they never cut one. */
+const LAKES: [number, number, number][] = [
+  [0.2, 0.24, 0.1],
+  [0.79, 0.2, 0.075],
+  [0.24, 0.79, 0.082],
+  [0.8, 0.76, 0.11],
+];
+
 /** Chance that a given cell is allowed to hold a decor prop. Kept low: the field should feel
  * inhabited, not littered, and every prop is one more thing competing with players for attention. */
 const DECOR_CHANCE = 0.055;
@@ -72,6 +89,41 @@ function hash2(x: number, y: number, seed: number): number {
   h = Math.imul(h, 0xc2b2ae35);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
+}
+
+/** Wobble applied to a region's rim so nothing in the arena is a perfect circle. */
+function rimWobble(angle: number, seed: number): number {
+  return (
+    Math.sin(angle * 3 + seed) * 0.55 + Math.sin(angle * 7 + seed * 2.3) * 0.3 + Math.sin(angle * 13 + seed) * 0.15
+  );
+}
+
+/** True where the plaza or one of its four roads covers this point, in arena fractions. */
+function isStone(fx: number, fy: number): boolean {
+  const dx = fx - 0.5;
+  const dy = fy - 0.5;
+  const dist = Math.hypot(dx, dy);
+  const rim = PLAZA_RADIUS * (1 + PLAZA_WOBBLE * rimWobble(Math.atan2(dy, dx), 1.7));
+  if (dist < rim) return true;
+  // Roads run from the plaza out to the middle of each wall. They narrow slightly as they go, which
+  // reads as perspective-free but still deliberate.
+  const taper = (t: number) => ROAD_HALF_WIDTH * (1.35 - 0.5 * t);
+  const along = Math.max(Math.abs(dx), Math.abs(dy));
+  const t = Math.min(1, Math.max(0, (along - PLAZA_RADIUS) / (0.5 - PLAZA_RADIUS)));
+  if (Math.abs(dx) > Math.abs(dy)) return Math.abs(dy) < taper(t);
+  return Math.abs(dx) < taper(t);
+}
+
+/** True where a lake covers this point. */
+function isWater(fx: number, fy: number): boolean {
+  for (let i = 0; i < LAKES.length; i++) {
+    const [lx, ly, lr] = LAKES[i];
+    const dx = fx - lx;
+    const dy = fy - ly;
+    const rim = lr * (1 + 0.22 * rimWobble(Math.atan2(dy, dx), 3.1 + i * 2.7));
+    if (Math.hypot(dx, dy) < rim) return true;
+  }
+  return false;
 }
 
 /**
@@ -144,6 +196,7 @@ export function paintGround(
       for (let gx = 0; gx * step < canvas.width; gx++) {
         const x = (gx + hash2(gx, gy, 811)) * step;
         const y = (gy + hash2(gx, gy, 812)) * step;
+        if (isStone(x / canvas.width, y / canvas.height) || isWater(x / canvas.width, y / canvas.height)) continue;
         const h = 2 + hash2(gx, gy, 813) * 3;
         // Half the blades lighter than the ground, half darker, so the texture reads as depth
         // rather than as speckle laid on top.
@@ -158,9 +211,58 @@ export function paintGround(
     }
   }
 
+  // --- the plaza and its roads -----------------------------------------------------------------
+  // Stone is one seamless texture rather than a Wang set (that pairing failed three times — see
+  // scripts/pixellab-map.mjs), so it is clipped to the layout and given its own edge here. A hard
+  // edge is right for masonry: paving stops where it stops.
+  const slab = images.get(STONE_TEXTURE);
+  if (slab) {
+    // Clipped on a quarter-tile grid rather than whole tiles: at tile resolution the plaza's rim
+    // and the roads' edges came out as a coarse staircase you could count the steps of.
+    const step = GROUND_TILE_PX / STONE_EDGE_STEPS;
+    const path = new Path2D();
+    for (let py = 0; py < canvas.height; py += step) {
+      for (let px = 0; px < canvas.width; px += step) {
+        if (isStone((px + step / 2) / canvas.width, (py + step / 2) / canvas.height)) {
+          path.rect(px, py, step, step);
+        }
+      }
+    }
+    ctx.save();
+    ctx.clip(path);
+    const pattern = ctx.createPattern(slab, 'repeat');
+    if (pattern) {
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.restore();
+    // A darker lip around the paving so the grass reads as sitting slightly higher than the stone.
+    ctx.save();
+    ctx.strokeStyle = 'rgba(40,52,32,0.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke(path);
+    ctx.restore();
+  }
+
+  // --- the lakes ---------------------------------------------------------------------------------
+  // Water IS a Wang set, so its shores are drawn art rather than a hard cut. Only cells with at
+  // least one water corner are painted; the rest keep the grass already laid down.
+  const waterCorner = (cx: number, cy: number) => (isWater(cx / cols, cy / rows) ? 1 : 0);
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const code =
+        `${waterCorner(x, y)}${waterCorner(x + 1, y)}` +
+        `${waterCorner(x, y + 1)}${waterCorner(x + 1, y + 1)}`;
+      if (code === '0000') continue;
+      const wt = images.get(waterKey(code));
+      if (wt) ctx.drawImage(wt, x * GROUND_TILE_PX, y * GROUND_TILE_PX, GROUND_TILE_PX, GROUND_TILE_PX);
+    }
+  }
+
   // Broad tone variation: big, very faint radial washes, half lightening and half darkening. These
   // are what stop 6000x6000 units of lawn reading as one flat colour, and being gradients they have
-  // no edge to give themselves away.
+  // no edge to give themselves away. Applied over everything, so it reads as light on the whole
+  // arena rather than a property of the grass.
   ctx.save();
   for (let i = 0; i < PATCH_COUNT; i++) {
     const px = hash2(i, 71, 1) * canvas.width;
@@ -185,6 +287,9 @@ export function paintGround(
     for (let by = 0; by < rows; by += DECOR_SPACING_CELLS) {
       for (let bx = 0; bx < cols; bx += DECOR_SPACING_CELLS) {
         if (hash2(bx, by, 101) > DECOR_SPACING_CELLS * DECOR_SPACING_CELLS * DECOR_CHANCE) continue;
+        const fx = (bx + DECOR_SPACING_CELLS / 2) / cols;
+        const fy = (by + DECOR_SPACING_CELLS / 2) / rows;
+        if (isStone(fx, fy) || isWater(fx, fy)) continue;
         // Jitter inside the block so the scatter doesn't sit on the block grid.
         const jx = hash2(bx, by, 211);
         const jy = hash2(bx, by, 307);

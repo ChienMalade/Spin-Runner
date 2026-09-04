@@ -591,6 +591,29 @@ export const GROUND_TILES: Record<string, number> = {
   '0000': require('../../../assets/Map/ground/tile-0000.png'),
 };
 
+/** Water tiles, keyed the same way — '1' meaning water at that corner, so lakes get real shores. */
+export const WATER_TILES: Record<string, number> = {
+  '0000': require('../../../assets/Map/water/tile-0000.png'),
+  '0001': require('../../../assets/Map/water/tile-0001.png'),
+  '0010': require('../../../assets/Map/water/tile-0010.png'),
+  '0011': require('../../../assets/Map/water/tile-0011.png'),
+  '0100': require('../../../assets/Map/water/tile-0100.png'),
+  '0101': require('../../../assets/Map/water/tile-0101.png'),
+  '0110': require('../../../assets/Map/water/tile-0110.png'),
+  '0111': require('../../../assets/Map/water/tile-0111.png'),
+  '1000': require('../../../assets/Map/water/tile-1000.png'),
+  '1001': require('../../../assets/Map/water/tile-1001.png'),
+  '1010': require('../../../assets/Map/water/tile-1010.png'),
+  '1011': require('../../../assets/Map/water/tile-1011.png'),
+  '1100': require('../../../assets/Map/water/tile-1100.png'),
+  '1101': require('../../../assets/Map/water/tile-1101.png'),
+  '1110': require('../../../assets/Map/water/tile-1110.png'),
+  '1111': require('../../../assets/Map/water/tile-1111.png'),
+};
+
+/** The plaza and its paths. One seamless texture; the renderer draws the edge. */
+export const STONE_SLAB: number = require('../../../assets/Map/stone/slab.png');
+
 /** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */
 export const DECOR_SPRITES: Record<string, number> = {
   'daisies': require('../../../assets/Map/decor/daisies.png'),

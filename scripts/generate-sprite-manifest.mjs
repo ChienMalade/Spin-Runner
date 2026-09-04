@@ -30,6 +30,11 @@ const WEAPONS = {
 // was generated and then dropped. The decor is flat, traversable ground cover; the border is the
 // field's edge wall, decorative only.
 const GROUND_DIR = 'assets/Map/ground';
+/** Water is a 16-tile Wang set over the grass, so its lakes get real shores. Stone is a single
+ * seamless texture whose edge the renderer draws itself — see scripts/pixellab-map.mjs for why a
+ * Wang set was not used for it. */
+const WATER_DIR = 'assets/Map/water';
+const STONE_SLAB = 'assets/Map/stone/slab.png';
 const DECOR_DIR = 'assets/Map/decor';
 const DECOR_NAMES = ['daisies', 'cornflowers', 'buttercups', 'pebbles', 'clover', 'tuft'];
 const BORDER = 'assets/Map/border/wall.png';
@@ -124,6 +129,16 @@ const groundEntries = fs
   })
   .join('\n');
 
+const waterEntries = fs
+  .readdirSync(path.join(ROOT, WATER_DIR))
+  .filter((f) => f.endsWith('.png'))
+  .sort()
+  .map((f) => {
+    const code = f.replace(/^tile-/, '').replace(/\.png$/, '');
+    return `  '${code}': ${requireLine(`${WATER_DIR}/${f}`)},`;
+  })
+  .join('\n');
+
 const decorEntries = DECOR_NAMES.map(
   (name) => `  '${name}': ${requireLine(`${DECOR_DIR}/${name}.png`)},`
 ).join('\n');
@@ -181,6 +196,14 @@ ${weaponEntries}
 export const GROUND_TILES: Record<string, number> = {
 ${groundEntries}
 };
+
+/** Water tiles, keyed the same way — '1' meaning water at that corner, so lakes get real shores. */
+export const WATER_TILES: Record<string, number> = {
+${waterEntries}
+};
+
+/** The plaza and its paths. One seamless texture; the renderer draws the edge. */
+export const STONE_SLAB: number = ${requireLine(STONE_SLAB)};
 
 /** Flat ground cover scattered over the field. Purely decorative — nothing here collides. */
 export const DECOR_SPRITES: Record<string, number> = {

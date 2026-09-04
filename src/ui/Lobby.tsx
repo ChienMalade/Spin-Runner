@@ -84,7 +84,11 @@ export default function Lobby() {
           </Pressable>
 
           <View style={styles.plinth}>
-            <Image source={sprites.idle[direction]} style={styles.hero} resizeMode="contain" />
+            <Image
+              source={sprites.idle[direction]}
+              style={[styles.hero, PIXELATED]}
+              resizeMode="contain"
+            />
             {/* A slab under the feet rather than a ring around the body. */}
             <View style={styles.plinthBar} />
           </View>
@@ -114,7 +118,7 @@ export default function Lobby() {
               >
                 <Image
                   source={CHARACTERS[id].idle.south}
-                  style={styles.slotSprite}
+                  style={[styles.slotSprite, PIXELATED]}
                   resizeMode="contain"
                 />
               </Pressable>
@@ -157,6 +161,10 @@ export default function Lobby() {
     </ScrollView>
   );
 }
+
+/** 64x64 art shown at 148px would be smoothly interpolated into mush by default. Nearest-neighbour
+ * is the whole point of pixel art, and React Native Web passes this straight through to CSS. */
+const PIXELATED = { imageRendering: 'pixelated' } as unknown as Record<string, unknown>;
 
 const GOLD = '#e3b24a';
 const PARCHMENT = '#e9dec4';

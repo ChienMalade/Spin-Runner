@@ -6,6 +6,8 @@ import {
   DECOR_SPRITES,
   DIRECTIONS,
   GROUND_TILES,
+  STONE_SLAB,
+  WATER_TILES,
   WEAPON_SPRITES,
   type Direction8,
 } from '@/game/phaser/spriteAssets';
@@ -19,6 +21,8 @@ export const weaponKey = (char: CharacterId) => `weapon-${char}`;
 /** Arena art. These never become Phaser textures: the scene paints them once into a single ground
  * image, so they are handed back as raw images rather than registered individually. */
 export const groundKey = (corners: string) => `ground-${corners}`;
+export const waterKey = (corners: string) => `water-${corners}`;
+export const STONE_TEXTURE = 'stone-slab';
 export const decorKey = (name: string) => `decor-${name}`;
 export const BORDER_TEXTURE = 'border-wall';
 
@@ -33,6 +37,8 @@ export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>>
   const wanted: [string, number][] = [[BORDER_TEXTURE, BORDER_SPRITE]];
   for (const char of CHARACTER_IDS) wanted.push([weaponKey(char), WEAPON_SPRITES[char]]);
   for (const [corners, mod] of Object.entries(GROUND_TILES)) wanted.push([groundKey(corners), mod]);
+  for (const [corners, mod] of Object.entries(WATER_TILES)) wanted.push([waterKey(corners), mod]);
+  wanted.push([STONE_TEXTURE, STONE_SLAB]);
   for (const name of DECOR_NAMES) wanted.push([decorKey(name), DECOR_SPRITES[name]]);
   for (const char of CHARACTER_IDS) {
     const sprites = CHARACTERS[char];

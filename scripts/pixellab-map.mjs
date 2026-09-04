@@ -289,8 +289,126 @@ async function landmarks() {
   }
 }
 
+
+// ---------------------------------------------------------------------------------------------
+// Terrain sets for the composed arena: grass->stone for the plaza and its paths, grass->water for
+// the ponds. A Wang set draws a BOUNDARY between its two terrains, which was wrong when both were
+// grass (see ground.ts) but is exactly right here — a paved plaza should have an edge.
+//
+// The water set is chained to the stone set's grass tile so the grass is literally the same art in
+// both, instead of two near-misses that would show as patches wherever they met.
+// ---------------------------------------------------------------------------------------------
+const GRASS_DESC =
+  'lush bright green anime meadow grass, vivid fresh spring green, fine short blades, sunny, ' +
+  'flat even ground, no flowers, no rocks';
+
+async function stoneSet() {
+  console.log('Pierre — 3 generations…');
+
+  const stoneJob = await post('create-tileset', {
+    lower_description: `${GRASS_DESC}, ${STYLE}`,
+    upper_description:
+      'a paved floor of large cut grey stone slabs, light warm grey masonry with darker joints ' +
+      'between the blocks, absolutely no grass and no green, dry and swept clean, flat and ' +
+      'walkable, vibrant anime style pixel art, clean cel shading, crisp readable shapes',
+    transition_description: 'the last blades of grass meeting the cut edge of the grey paving',
+    tile_size: { width: 32, height: 32 },
+    mode: 'standard',
+    shape_style: 'round',
+    // The first two attempts came back with grass for BOTH terrains. enhance lets the model rewrite
+    // the descriptions and pick base colours to match, which is the documented cure for exactly this.
+    enhance: true,
+    transition_size: 0.25,
+    view: 'high top-down',
+    outline: 'lineless',
+    shading: 'basic shading',
+    detail: 'medium detail',
+    seed: 991,
+  });
+  const stoneId = stoneJob.tileset?.id ?? stoneJob.tileset_id ?? stoneJob.id;
+  const stoneTiles = await waitFor('tilesets', stoneId, (b) => (b.tileset ?? b).tiles);
+  let grassBaseId = null;
+  for (const tile of stoneTiles) {
+    const c = tile.corners ?? {};
+    const code = ['NW', 'NE', 'SW', 'SE'].map((k) => (c[k] === 'upper' ? '1' : '0')).join('');
+    if (code === '0000') grassBaseId = tile.id ?? null;
+    savePng('stone', `tile-${code}`, tile.image?.base64 ?? tile.base64);
+  }
+  console.log(`  pierre: ${stoneTiles.length} tuiles`);
+  return grassBaseId;
+}
+
+async function waterSet(grassBaseId) {
+  console.log('Eau — 3 generations…');
+  const waterJob = await post('create-tileset', {
+    lower_description: `${GRASS_DESC}, ${STYLE}`,
+    upper_description:
+      'clear shallow turquoise water over a pale sandy bed, bright and sparkling, gentle ripples, ' +
+      `${STYLE}`,
+    transition_description: 'grass giving way to a wet sandy shore at the water line',
+    lower_base_tile_id: grassBaseId ?? undefined,
+    tile_size: { width: 32, height: 32 },
+    mode: 'standard',
+    shape_style: 'round',
+    transition_size: 0.25,
+    view: 'high top-down',
+    outline: 'lineless',
+    shading: 'basic shading',
+    detail: 'medium detail',
+    seed: 7311,
+  });
+  const waterId = waterJob.tileset?.id ?? waterJob.tileset_id ?? waterJob.id;
+  const waterTiles = await waitFor('tilesets', waterId, (b) => (b.tileset ?? b).tiles);
+  for (const tile of waterTiles) {
+    const c = tile.corners ?? {};
+    const code = ['NW', 'NE', 'SW', 'SE'].map((k) => (c[k] === 'upper' ? '1' : '0')).join('');
+    savePng('water', `tile-${code}`, tile.image?.base64 ?? tile.base64);
+  }
+  console.log(`  eau: ${waterTiles.length} tuiles`);
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// A plain stone texture, tiled by the renderer which draws the plaza's edge itself.
+//
+// This replaces a grass->stone Wang set that was attempted three times (9 generations) and failed
+// the same way every time: the "upper" terrain came back as a flat green fill with no masonry at
+// all, whatever the description said. The water set generated from the same call shape worked
+// first time, so the fault is specific to that pairing — don't retry it.
+// ---------------------------------------------------------------------------------------------
+async function stone() {
+  console.log('Pierre — 1 generation…');
+  const job = await post('create-image-pixflux', {
+    description:
+      'a seamless paved floor of large cut grey stone slabs, light warm grey masonry with darker ' +
+      'joints between the blocks, dry and swept, seen from directly overhead, filling the entire ' +
+      'image edge to edge, vibrant anime style pixel art, clean cel shading',
+    negative_description:
+      'grass, green, moss, plant, dirt, water, border, frame, edge of the paving, vignette, object, character',
+    image_size: { width: 64, height: 64 },
+    view: 'high top-down',
+    outline: 'lineless',
+    shading: 'basic shading',
+    detail: 'medium detail',
+    text_guidance_scale: 10,
+    seed: 991,
+  });
+  const b64 =
+    job.image?.base64 ??
+    (job.image_id || job.id
+      ? await waitFor('images', job.image_id ?? job.id, (b) => (b.image ?? b).base64)
+      : null);
+  if (!b64) throw new Error('no image');
+  savePng('stone', 'slab', b64);
+}
+
 const which = process.argv[2];
-const groups = { ground, decor, border, field, materials, landmarks };
+async function terrain() {
+  const grassBaseId = await stoneSet();
+  await waterSet(grassBaseId);
+}
+
+const groups = { ground, decor, border, field, materials, landmarks, terrain, stoneSet, stone };
 if (!groups[which]) {
   console.error('usage: node scripts/pixellab-map.mjs <ground|decor|border>');
   process.exit(1);
