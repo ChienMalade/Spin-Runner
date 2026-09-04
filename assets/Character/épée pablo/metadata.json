@@ -1,0 +1,22 @@
+{
+  "group_id": "124ddd1f-0817-4fcc-baf4-3aae795ba636",
+  "objects": [
+    {
+      "id": "7900253b-44ad-4748-9c93-08de42e5f342",
+      "name": "base",
+      "prompt": "une \u00e9p\u00e9e en jouet verticale",
+      "size": {
+        "width": 64,
+        "height": 64
+      },
+      "directions": 1,
+      "view": "low top-down",
+      "rotations": {
+        "unknown": "rotations/une_epee_en_jouet_verticale.png"
+      },
+      "animations": {}
+    }
+  ],
+  "export_version": "1.1",
+  "export_date": "2026-09-04T15:31:39.830585"
+}
