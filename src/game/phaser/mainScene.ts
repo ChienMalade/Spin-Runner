@@ -14,7 +14,7 @@ import {
 import { hslToHex, lerpColorHex } from '@/game/color';
 import { playSfx, type SfxName } from '@/audio/sounds';
 import { CHARACTERS, DIRECTIONS, type Direction8 } from '@/game/phaser/spriteAssets';
-import { dashKey, idleKey, runKey, SWORD_TEXTURE } from '@/game/phaser/loadSprites';
+import { dashKey, idleKey, runKey, weaponKey } from '@/game/phaser/loadSprites';
 import { makeBlobCanvas, makeCloudCanvas, paintGround } from '@/game/phaser/ground';
 
 /** Cloud shadows drifting over the field: one tiling texture, scrolled slowly. */
@@ -191,9 +191,14 @@ const BODY_SPRITE_SCALE = 3.1;
  * ring upward) is what keeps the blades where they actually hit; the character is moved to meet
  * them instead of the other way round. */
 const BODY_Y_OFFSET = 0.08;
-/** The blade fills roughly this much of its square sprite, so a sprite drawn at
- * 2 * swordRadius / SWORD_ART_FILL has a blade about as long as its hit circle is wide. */
-const SWORD_ART_FILL = 0.85;
+/** Weapon sprites are drawn at 2 * swordRadius / WEAPON_ART_FILL.
+ *
+ * Measured, the art actually fills 0.94 (Pablo's dinosaur) to 0.97 (Edgar's sword, Sahur's bat) of
+ * its frame, so this deliberately draws each weapon about 12% longer than its hit circle is wide —
+ * the blade reads as reaching slightly past where it connects, which looks right and is close
+ * enough that nobody has been surprised by a miss. All three weapons measure within 3% of each
+ * other, so one constant still covers the roster. */
+const WEAPON_ART_FILL = 0.85;
 const RUN_FRAME_RATE = 14;
 const DASH_FRAME_RATE = 20;
 /** Mirrors BASE_MOVE_SPEED in server/src/entities.ts — the run cycle is played at its normal rate
@@ -929,7 +934,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         if (!sv) {
           // The art points the blade "up" (-Y); the container is rotated so its local +X faces
           // outward along the orbit, so the sprite gets a fixed quarter-turn to line the two up.
-          const blade = this.add.sprite(0, 0, SWORD_TEXTURE).setRotation(Math.PI / 2);
+          const blade = this.add.sprite(0, 0, weaponKey(vis.character)).setRotation(Math.PI / 2);
           const container = this.add.container(0, 0, [blade]);
           sv = { container, blade };
           vis.swords.set(sword.id, sv);
@@ -958,7 +963,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
 
       const wear = 1 - sword.hp / sword.maxHp;
       // Sized from the server's own hit radius so the blade you see is the blade that connects.
-      const spriteSize = Math.max(6, (p.swordRadius * 2) / SWORD_ART_FILL);
+      const spriteSize = Math.max(6, (p.swordRadius * 2) / WEAPON_ART_FILL);
       sv.blade.setDisplaySize(spriteSize, spriteSize);
       // Tinting toward red still shows a blade taking damage, now on the sprite instead of a
       // recolored rectangle.

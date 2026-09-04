@@ -137,7 +137,7 @@ export default function Lobby() {
         {full && <Text style={styles.warning}>{FULL_REASON_TEXT[fullReason ?? 'server_full']}</Text>}
 
         <TextInput
-          style={[styles.input, styles.codeInput]}
+          style={styles.input}
           placeholder="CODE D'ARÈNE"
           placeholderTextColor="rgba(233,222,196,0.28)"
           value={arenaCode}
@@ -146,7 +146,6 @@ export default function Lobby() {
           autoCapitalize="characters"
           onSubmitEditing={handlePlay}
         />
-        <Text style={styles.hint}>VIDE = ARÈNE AU HASARD</Text>
 
         <Pressable
           style={({ pressed }) => [styles.playBtn, pressed && styles.playBtnPressed]}
@@ -244,15 +243,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  codeInput: { letterSpacing: 8, marginBottom: 4 },
   warning: { color: '#e2725b', fontSize: 12, fontWeight: '700', marginTop: -6, marginBottom: 10 },
-  hint: {
-    color: 'rgba(233,222,196,0.4)',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 18,
-  },
 
   playBtn: {
     width: '100%',

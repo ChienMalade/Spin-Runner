@@ -17,7 +17,7 @@ export const HP_PER_GROWTH_LEVEL = 50; // one HP-bar notch's worth of max HP gra
  * scripts/generate-sprite-manifest.mjs — this list is the source of truth, and the generated
  * manifest is typed as Record<CharacterId, ...>, so adding an id here without adding its art is a
  * compile error rather than a crash in the arena. */
-export const CHARACTER_IDS = ['knight', 'pablo'] as const;
+export const CHARACTER_IDS = ['knight', 'pablo', 'sahur'] as const;
 export type CharacterId = (typeof CHARACTER_IDS)[number];
 export const DEFAULT_CHARACTER: CharacterId = 'knight';
 

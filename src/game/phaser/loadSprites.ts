@@ -6,7 +6,7 @@ import {
   DECOR_SPRITES,
   DIRECTIONS,
   GROUND_TILES,
-  SWORD_SPRITE,
+  WEAPON_SPRITES,
   type Direction8,
 } from '@/game/phaser/spriteAssets';
 import { CHARACTER_IDS, type CharacterId } from '@/net/protocol';
@@ -14,7 +14,7 @@ import { CHARACTER_IDS, type CharacterId } from '@/net/protocol';
 export const idleKey = (char: CharacterId, dir: Direction8) => `${char}-idle-${dir}`;
 export const runKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-run-${dir}-${frame}`;
 export const dashKey = (char: CharacterId, dir: Direction8, frame: number) => `${char}-dash-${dir}-${frame}`;
-export const SWORD_TEXTURE = 'sword-base';
+export const weaponKey = (char: CharacterId) => `weapon-${char}`;
 
 /** Arena art. These never become Phaser textures: the scene paints them once into a single ground
  * image, so they are handed back as raw images rather than registered individually. */
@@ -30,10 +30,8 @@ export const BORDER_TEXTURE = 'border-wall';
  * the scene never reaches create(). Loading them here and handing the scene ready-made images via
  * `textures.addImage` sidesteps that entirely, and lets the game boot only once the art is ready. */
 export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>> {
-  const wanted: [string, number][] = [
-    [SWORD_TEXTURE, SWORD_SPRITE],
-    [BORDER_TEXTURE, BORDER_SPRITE],
-  ];
+  const wanted: [string, number][] = [[BORDER_TEXTURE, BORDER_SPRITE]];
+  for (const char of CHARACTER_IDS) wanted.push([weaponKey(char), WEAPON_SPRITES[char]]);
   for (const [corners, mod] of Object.entries(GROUND_TILES)) wanted.push([groundKey(corners), mod]);
   for (const name of DECOR_NAMES) wanted.push([decorKey(name), DECOR_SPRITES[name]]);
   for (const char of CHARACTER_IDS) {
