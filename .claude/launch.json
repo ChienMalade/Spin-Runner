@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "orbitclash-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web"],
+      "port": 8093,
+      "autoPort": true
+    },
+    {
+      "name": "wizard-chest-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../Projet Chess Avec Claude", "run", "web", "--", "--port", "8092"],
+      "port": 8092,
+      "autoPort": true
+    }
+  ]
+}

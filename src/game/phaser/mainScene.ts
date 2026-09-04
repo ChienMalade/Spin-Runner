@@ -17,9 +17,6 @@ import { CHARACTERS, DIRECTIONS, type Direction8 } from '@/game/phaser/spriteAss
 import { dashKey, idleKey, runKey, SWORD_TEXTURE } from '@/game/phaser/loadSprites';
 import { makeBlobCanvas, makeCloudCanvas, paintGround } from '@/game/phaser/ground';
 
-// Same values as the old GameCanvas.tsx / camera.ts — the visual rules haven't changed, only how
-// they're drawn. Kept local to this file rather than imported from those (being phased out) so this
-// scene doesn't depend on files that will eventually be deleted.
 /** Cloud shadows drifting over the field: one tiling texture, scrolled slowly. */
 const CLOUD_TEXTURE_PX = 512;
 const CLOUD_WORLD_SIZE = 1400;
@@ -36,12 +33,16 @@ const SHADOW_ALPHA = 0.34;
 /** Mid-dash the character is off the ground, so the shadow shrinks and fades under them. */
 const SHADOW_DASH_SCALE = 0.72;
 
-const BASE_ZOOM = 1.2;
-// Growing pulls the camera back harder than it used to (was 0.09 falloff / 0.35 floor): a maxed
-// player now sees roughly twice the ground they did, which they need once their sword ring is huge.
-const ZOOM_FALLOFF = 0.15;
-const MIN_ZOOM = 0.2;
+/** Zoom for a player at minimum size. Lower than it was (1.2): the whole game now sits further
+ * back, so there is more field on screen at every level. */
+const BASE_ZOOM = 0.9;
+/** Floor on the zoom. Compensating exactly at the largest size would open the view well past the
+ * arena walls; this stops it a little short of that. */
+const MIN_ZOOM = 0.13;
 const MAX_ZOOM = 1.2;
+/** Mirrors BASE_RADIUS in server/src/entities.ts — used only to turn a radius back into a growth
+ * multiplier for the camera. */
+const BASE_PLAYER_RADIUS = 22;
 const ZOOM_SMOOTH_TAU = 0.45;
 const SIZE_SMOOTH_TAU = 0.35;
 
@@ -165,8 +166,16 @@ function approach(current: number, target: number, dtSec: number, tau: number): 
   return current + (target - current) * k;
 }
 
-function targetZoomFor(growthTier: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, BASE_ZOOM / (1 + growthTier * ZOOM_FALLOFF)));
+/** The camera pulls back in exact proportion to how big the local player is, so YOUR character
+ * always covers the same number of screen pixels whatever level you are. Growing therefore never
+ * makes you look bigger — it makes everyone else look smaller, which is the read we want.
+ *
+ * The growth multiplier is recovered from the radius the server already sends (radius is
+ * BASE_PLAYER_RADIUS * scaleFor(tier)) rather than duplicating the server's curve here, where the
+ * two copies would eventually drift apart. */
+function targetZoomFor(radius: number): number {
+  const scale = Math.max(1, radius / BASE_PLAYER_RADIUS);
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, BASE_ZOOM / scale));
 }
 
 function hexToNum(hex: string): number {
@@ -386,8 +395,12 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       }
     }
 
-    /** A dark rim that fades in at the screen edges. Pinned to the camera rather than the world, so
-     * it stays put while everything else scrolls underneath. */
+    /** A dark rim that fades in at the screen edges.
+     *
+     * It lives in the world and is re-fitted to the camera's visible rectangle every frame. The
+     * obvious alternative, setScrollFactor(0), does NOT work here: Phaser still applies camera zoom
+     * to scroll-locked objects, so once the player grew and the camera pulled back, the vignette
+     * shrank into a dark square sitting in the middle of the screen. */
     private drawVignette() {
       const key = 'vignette';
       if (!this.textures.exists(key)) {
@@ -405,13 +418,18 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         }
         this.textures.addCanvas(key, canvas);
       }
-      const cam = this.cameras.main;
-      this.vignette = this.add
-        .image(0, 0, key)
-        .setOrigin(0, 0)
-        .setScrollFactor(0)
-        .setDepth(DEPTH_VIGNETTE)
-        .setDisplaySize(cam.width, cam.height);
+      this.vignette = this.add.image(0, 0, key).setDepth(DEPTH_VIGNETTE);
+      this.fitVignette();
+    }
+
+    /** Stretches the vignette over exactly what the camera can see. Called every frame because both
+     * the zoom and the canvas size change under us. */
+    private fitVignette() {
+      if (!this.vignette) return;
+      const view = this.cameras.main.worldView;
+      this.vignette.setPosition(view.centerX, view.centerY);
+      // A hair larger than the view so no edge of the gradient ever shows as a seam.
+      this.vignette.setDisplaySize(view.width * 1.02, view.height * 1.02);
     }
 
     update(_time: number, deltaMs: number) {
@@ -424,13 +442,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         this.clouds.tilePositionX += CLOUD_DRIFT_X * dtSec * perUnit;
         this.clouds.tilePositionY += CLOUD_DRIFT_Y * dtSec * perUnit;
       }
-      if (this.vignette) {
-        const cam = this.cameras.main;
-        // The canvas can be resized under us (window resize, phone rotation).
-        if (this.vignette.displayWidth !== cam.width || this.vignette.displayHeight !== cam.height) {
-          this.vignette.setDisplaySize(cam.width, cam.height);
-        }
-      }
+      this.fitVignette();
       const now = Date.now();
       const localPlayer = state.players.find((p) => p.id === state.playerId) ?? null;
 
@@ -440,7 +452,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       }
 
       if (localPlayer) {
-        const targetZoom = targetZoomFor(localPlayer.growthTier);
+        const targetZoom = targetZoomFor(localPlayer.radius);
         this.smoothZoom = approach(this.smoothZoom ?? targetZoom, targetZoom, dtSec, ZOOM_SMOOTH_TAU);
         this.cameras.main.setZoom(this.smoothZoom);
 

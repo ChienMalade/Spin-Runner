@@ -23,7 +23,7 @@ export const BASE_RADIUS = 22;
 // bigger and held further out, hit area included — which does lengthen everyone's reach, so this is
 // the dial to turn if combat starts feeling too swingy.
 export const BASE_SWORD_RADIUS = 23;
-export const BASE_SWORD_ORBIT_RADIUS = 52;
+export const BASE_SWORD_ORBIT_RADIUS = 60;
 export const BASE_SWORD_SPIN = 1.1; // rad/s at level 1 — lower baseline, and levels climb more gently
 export const BASE_MOVE_SPEED = 230; // px/s
 export const SPEED_BUFF_MULTIPLIER = 2; // flat — the "speed" bonus no longer stacks
@@ -140,14 +140,18 @@ export interface ServerPlayer {
   gold: number;
 }
 
+/** How much the level 10..20 stretch adds on top of the level-10 scale. Was 1.0 (level 20 landed at
+ * 11x, twice the level-10 cap); cut to 0.5 so the biggest player is 8.25x instead — a 25% smaller
+ * maximum, which is what a maxed player at the far end of the camera's dezoom needed. */
+const GROWTH_PRESTIGE_GAIN = 0.5;
+
 /** Uniform growth multiplier applied to player radius, sword radius, orbit radius and max HP alike.
- * Climbs the original 1..5.5 curve through level 10 (unchanged from before), then accelerates so
- * level 20 lands at exactly 2x the old level-10 cap (11x) — bigger players keep getting noticeably
- * bigger per level all the way to the new max instead of leveling off. */
+ * Climbs the original 1..5.5 curve through level 10 (unchanged), then accelerates to 8.25x at
+ * level 20 — bigger players keep getting noticeably bigger per level instead of leveling off. */
 export function scaleFor(growthTier: number): number {
-  const base10 = 1 + 0.5 * 9; // = 5.5, the old level-10 cap
+  const base10 = 1 + 0.5 * 9; // = 5.5, the level-10 cap
   if (growthTier <= 10) return 1 + 0.5 * (growthTier - 1);
-  return base10 + base10 * prestigeFactor(growthTier, 20); // -> exactly 2x base10 at level 20
+  return base10 + base10 * GROWTH_PRESTIGE_GAIN * prestigeFactor(growthTier, 20);
 }
 
 export function radiusFor(p: ServerPlayer): number {

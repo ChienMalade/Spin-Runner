@@ -6,7 +6,8 @@ export const HUD_SIDE_MARGIN = 20;
 /** Both top-left panels (stats, gauges) are pinned to this height. */
 export const HUD_PANEL_HEIGHT = 74;
 export const HUD_PANEL_GAP = 10;
-export const LEVEL_PANEL_WIDTH = 132;
+// Four columns now (size, spin, sword tier, blade count), so wider than the three-column version.
+export const LEVEL_PANEL_WIDTH = 168;
 /** Where the gauges start: just right of the stats panel. */
 export const GAUGES_LEFT = HUD_SIDE_MARGIN + LEVEL_PANEL_WIDTH + HUD_PANEL_GAP;
 /** Keeps the gauges clear of the leaderboard on the right. */
