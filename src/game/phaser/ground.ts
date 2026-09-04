@@ -1,4 +1,4 @@
-import { grassKey, stoneKey, waterKey } from '@/game/phaser/loadSprites';
+import { grassKey, stoneKey } from '@/game/phaser/loadSprites';
 
 /** Source pixels per ground tile. 64 to match the character art exactly: one pixel of ground is one
  * pixel of character, which is what makes the scene read as one piece of art. An earlier 32px floor
@@ -16,20 +16,14 @@ export const GROUND_TILE_WORLD = GROUND_TILE_PX * UNITS_PER_SRC_PX;
 
 // --- the arena's layout --------------------------------------------------------------------------
 // Fractions of the arena, so the plan holds whatever size the arena is. A uniform field gave players
-// nothing to navigate by; a plaza at the centre with four roads out of it, lakes in the quadrants
-// and a paved rim around the edge gives every part of the map an address.
+// nothing to navigate by; a plaza at the centre with four roads out of it and a paved rim around the
+// edge gives every part of the map an address. Lakes were tried in the quadrants and removed — no
+// water in this arena.
 const PLAZA_RADIUS = 0.13;
 const PLAZA_WOBBLE = 0.09; // irregularity of the plaza's rim, as a fraction of its radius
 const ROAD_HALF_WIDTH = 0.03;
 /** Paved border ring, as a fraction of the arena. Marks the edge; it is not an obstacle. */
 const RIM_WIDTH = 0.022;
-/** Lakes, as [x, y, radius] in arena fractions. Placed off the roads so they never cut one. */
-const LAKES: [number, number, number][] = [
-  [0.21, 0.25, 0.105],
-  [0.78, 0.21, 0.08],
-  [0.24, 0.78, 0.088],
-  [0.79, 0.755, 0.115],
-];
 
 /**
  * Removes a tile's built-in large-scale shading, keeping its fine detail.
@@ -104,6 +98,52 @@ function flattenTile(img: HTMLImageElement, radius: number): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * Makes any texture tile seamlessly with itself.
+ *
+ * The generated tiles are not seamless — they are individual pictures, and butting them together
+ * leaves a visible grid however good each one is. This is the standard fix: cross-fade the tile with
+ * a copy of itself offset by half its size, weighted so the blend is pure original at the centre and
+ * pure offset copy at the edges. Because the offset copy's edge pixels come from the original's
+ * middle, every edge then matches the opposite edge exactly, and the tile wraps.
+ *
+ * The cost is softer detail near the edges, which on grass is invisible next to the grid it removes.
+ */
+function makeSeamless(src: CanvasImageSource, w: number, h: number): HTMLCanvasElement {
+  const read = document.createElement('canvas');
+  read.width = w;
+  read.height = h;
+  const rctx = read.getContext('2d');
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext('2d');
+  if (!rctx || !octx) return out;
+
+  rctx.drawImage(src, 0, 0);
+  const a = rctx.getImageData(0, 0, w, h);
+  const result = octx.createImageData(w, h);
+
+  // Weight is 0 at an edge and 1 at the centre, with a cosine ramp so there is no crease where the
+  // two copies meet.
+  const ramp = (t: number) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, t)));
+  for (let y = 0; y < h; y++) {
+    const wy = ramp(1 - Math.abs((2 * y) / h - 1));
+    const sy = (y + (h >> 1)) % h;
+    for (let x = 0; x < w; x++) {
+      const wx = ramp(1 - Math.abs((2 * x) / w - 1));
+      const k = wx * wy;
+      const i = (y * w + x) * 4;
+      const j = (sy * w + ((x + (w >> 1)) % w)) * 4;
+      for (let c = 0; c < 4; c++) {
+        result.data[i + c] = a.data[i + c] * k + a.data[j + c] * (1 - k);
+      }
+    }
+  }
+  octx.putImageData(result, 0, 0);
+  return out;
+}
+
 /** Mean colour of an image's opaque pixels. */
 function meanColor(img: CanvasImageSource, w: number, h: number): [number, number, number] {
   const c = document.createElement('canvas');
@@ -125,42 +165,6 @@ function meanColor(img: CanvasImageSource, w: number, h: number): [number, numbe
     count++;
   }
   return count === 0 ? [1, 1, 1] : [r / count, g / count, b / count];
-}
-
-/** Re-tints every tile of one terrain set so its grass matches the other set's.
- *
- * The two sets are generated in separate calls and their meadows come out slightly different
- * greens. Laid side by side that difference reads as a chequerboard, and it shows again wherever a
- * lake's shore meets the field. PixelLab refuses style references on connectable sets — they are
- * "connectable features cannot be combined with style tiles" — so the match is made here instead,
- * from the measured mean of each set's all-grass tile. */
-function toneMatched(
-  tiles: (HTMLImageElement | undefined)[],
-  from: HTMLImageElement,
-  to: HTMLCanvasElement
-) {
-  const src = meanColor(from, from.width, from.height);
-  const dst = meanColor(to, to.width, to.height);
-  const gain = [dst[0] / Math.max(1, src[0]), dst[1] / Math.max(1, src[1]), dst[2] / Math.max(1, src[2])];
-
-  return tiles.map((img) => {
-    if (!img) return undefined;
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const ctx = c.getContext('2d');
-    if (!ctx) return img;
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, img.width, img.height);
-    const d = data.data;
-    for (let i = 0; i < d.length; i += 4) {
-      d[i] = Math.min(255, d[i] * gain[0]);
-      d[i + 1] = Math.min(255, d[i + 1] * gain[1]);
-      d[i + 2] = Math.min(255, d[i + 2] * gain[2]);
-    }
-    ctx.putImageData(data, 0, 0);
-    return c;
-  });
 }
 
 /** Deterministic hash. The ground must be identical for every player and every session — two
@@ -201,18 +205,6 @@ function isStone(fx: number, fy: number): boolean {
   const t = Math.min(1, Math.max(0, (along - PLAZA_RADIUS) / (0.5 - PLAZA_RADIUS)));
   const halfWidth = ROAD_HALF_WIDTH * (1.3 - 0.45 * t);
   return Math.abs(dx) > Math.abs(dy) ? Math.abs(dy) < halfWidth : Math.abs(dx) < halfWidth;
-}
-
-/** True where a lake covers this point. */
-function isWater(fx: number, fy: number): boolean {
-  for (let i = 0; i < LAKES.length; i++) {
-    const [lx, ly, lr] = LAKES[i];
-    const dx = fx - lx;
-    const dy = fy - ly;
-    const rim = lr * (1 + 0.22 * rimWobble(Math.atan2(dy, dx), 3.1 + i * 2.7));
-    if (Math.hypot(dx, dy) < rim) return true;
-  }
-  return false;
 }
 
 /** The tiles are NOT seamless with themselves. Measured on the all-grass tile: its top edge averages
@@ -276,9 +268,10 @@ export function paintGround(
   /** Draws one cell, mirrored according to its position — see mirrorX / mirrorY. */
   const draw = (img: CanvasImageSource | undefined, x: number, y: number) => {
     if (!img) return;
-    // Flipping only for variety now that the tiles are flat enough to meet anywhere.
-    const fx = hash2(x, y, 21) < 0.5 ? -1 : 1;
-    const fy = hash2(x, y, 23) < 0.5 ? -1 : 1;
+    // No flipping: a wrapped tile only matches itself in its own orientation. Mirroring one cell
+    // would put an edge against its own reversal, which is a seam again.
+    const fx = 1;
+    const fy = 1;
     if (fx === 1 && fy === 1) {
       ctx.drawImage(img, x * px, y * px, px, px);
       return;
@@ -293,37 +286,26 @@ export function paintGround(
   // --- the meadow --------------------------------------------------------------------------------
   // ONE grass tile, mirrored per cell. Alternating two tiles was tried and it drew a chequerboard:
   // the field's period is short enough that any tone difference between two tiles reads as a grid.
-  const grassSrc = images.get(grassKey(0));
-  const grass = grassSrc ? flattenTile(grassSrc, 10) : undefined;
+  // Flatten the tile's built-in lighting first, then make it wrap. Flattening alone left the edges
+  // close but not equal, which still read as a grid; wrapping alone left the tile's own low-frequency
+  // structure, which the cross-fade then turned into a soft quilt. The radius is deliberately large
+  // (22 of 64) so almost nothing below the scale of individual blades survives.
+  const grassSrc = images.get(grassKey());
+  const grass = grassSrc
+    ? makeSeamless(flattenTile(grassSrc, 22), grassSrc.width, grassSrc.height)
+    : undefined;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) draw(grass, x, y);
   }
 
-  // --- lakes, then paving ------------------------------------------------------------------------
-  // Paving goes on top so a road can run right to the water's edge without the shore cutting it.
-  const inWater = (cx: number, cy: number) => isWater(cx / cols, cy / rows);
+  // --- the paving --------------------------------------------------------------------------------
   const inStone = (cx: number, cy: number) => isStone(cx / cols, cy / rows);
-
-  const stoneTiles: (HTMLImageElement | undefined)[] = [];
-  const waterRaw: (HTMLImageElement | undefined)[] = [];
-  for (let mask = 0; mask < 16; mask++) {
-    stoneTiles.push(images.get(stoneKey(mask)));
-    waterRaw.push(images.get(waterKey(mask)));
-  }
-  const grassWater = images.get(grassKey(1));
-  const waterTiles = grass && grassWater ? toneMatched(waterRaw, grassWater, grass) : waterRaw;
-
-  for (const [region, tiles] of [
-    [inWater, waterTiles],
-    [inStone, stoneTiles],
-  ] as const) {
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const mask = cornerMask(region, x, y);
-        // 15 is all grass: none of this terrain here, so leave the meadow showing.
-        if (mask === 15) continue;
-        draw(tiles[mask], x, y);
-      }
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const mask = cornerMask(inStone, x, y);
+      // 15 is all grass: no paving here, so leave the meadow showing.
+      if (mask === 15) continue;
+      draw(images.get(stoneKey(mask)), x, y);
     }
   }
 

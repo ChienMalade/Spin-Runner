@@ -10,9 +10,8 @@ export const weaponKey = (char: CharacterId) => `weapon-${char}`;
 /** Arena floor art. These never become Phaser textures: the scene paints them once into a single
  * ground image, so they are handed back as raw images rather than registered individually. */
 export const stoneKey = (mask: number) => `stone-${mask}`;
-export const waterKey = (mask: number) => `water-${mask}`;
-/** The two all-grass tiles, one from each terrain set — the meadow's two faces. */
-export const grassKey = (variant: number) => `grass-${variant}`;
+/** The set's all-grass tile, which the whole meadow is built from. */
+export const grassKey = () => 'grass';
 
 /** Loads every character/sword PNG into plain HTMLImageElements, keyed by the texture name the
  * scene will register them under.
@@ -24,14 +23,9 @@ export const grassKey = (variant: number) => `grass-${variant}`;
 export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>> {
   const wanted: [string, number][] = [];
   for (const char of CHARACTER_IDS) wanted.push([weaponKey(char), WEAPON_SPRITES[char]]);
-  for (let mask = 0; mask < 16; mask++) {
-    wanted.push([stoneKey(mask), TERRAIN_TILES.stone[mask]]);
-    wanted.push([waterKey(mask), TERRAIN_TILES.water[mask]]);
-  }
-  // Mask 15 of each set is that set's all-grass tile; the two differ because they came from
-  // separate generations, which is exactly the variety the meadow needs.
-  wanted.push([grassKey(0), TERRAIN_TILES.stone[15]]);
-  wanted.push([grassKey(1), TERRAIN_TILES.water[15]]);
+  for (let mask = 0; mask < 16; mask++) wanted.push([stoneKey(mask), TERRAIN_TILES.stone[mask]]);
+  // Mask 15 is the set's all-grass tile — the meadow.
+  wanted.push([grassKey(), TERRAIN_TILES.stone[15]]);
   for (const char of CHARACTER_IDS) {
     const sprites = CHARACTERS[char];
     for (const dir of DIRECTIONS) {

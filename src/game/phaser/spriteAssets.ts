@@ -585,10 +585,9 @@ export const WEAPON_SPRITES: Record<CharacterId, number> = {
   pablo: require('../../../assets/Character/épée pablo/une_epee_en_jouet_verticale/rotations/une_epee_en_jouet_verticale.png'),
   sahur: require('../../../assets/Character/une_batte_de_baseball_vertical/une_batte_de_baseball_vertical/rotations/une_batte_de_baseball_vertical.png'),
 };
-/** The two terrain sets, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
- * Mask 15 is all grass — the renderer takes its base meadow from each set's mask 15 — and mask 0 is
- * all of the other terrain. */
-export const TERRAIN_TILES: Record<'stone' | 'water', Record<number, number>> = {
+/** The terrain set, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
+ * Mask 15 is all grass — the renderer builds the whole meadow from it — and mask 0 is all paving. */
+export const TERRAIN_TILES: Record<'stone', Record<number, number>> = {
   stone: {
     0: require('../../../assets/Map/stone/tile_0.png'),
     1: require('../../../assets/Map/stone/tile_1.png'),
@@ -606,23 +605,5 @@ export const TERRAIN_TILES: Record<'stone' | 'water', Record<number, number>> = 
     13: require('../../../assets/Map/stone/tile_13.png'),
     14: require('../../../assets/Map/stone/tile_14.png'),
     15: require('../../../assets/Map/stone/tile_15.png'),
-  },
-  water: {
-    0: require('../../../assets/Map/water/tile_0.png'),
-    1: require('../../../assets/Map/water/tile_1.png'),
-    2: require('../../../assets/Map/water/tile_2.png'),
-    3: require('../../../assets/Map/water/tile_3.png'),
-    4: require('../../../assets/Map/water/tile_4.png'),
-    5: require('../../../assets/Map/water/tile_5.png'),
-    6: require('../../../assets/Map/water/tile_6.png'),
-    7: require('../../../assets/Map/water/tile_7.png'),
-    8: require('../../../assets/Map/water/tile_8.png'),
-    9: require('../../../assets/Map/water/tile_9.png'),
-    10: require('../../../assets/Map/water/tile_10.png'),
-    11: require('../../../assets/Map/water/tile_11.png'),
-    12: require('../../../assets/Map/water/tile_12.png'),
-    13: require('../../../assets/Map/water/tile_13.png'),
-    14: require('../../../assets/Map/water/tile_14.png'),
-    15: require('../../../assets/Map/water/tile_15.png'),
   },
 };

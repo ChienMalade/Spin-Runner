@@ -26,9 +26,10 @@ const WEAPONS = {
     'assets/Character/une_batte_de_baseball_vertical/une_batte_de_baseball_vertical/rotations/une_batte_de_baseball_vertical.png',
 };
 
-// Arena floor art: two 16-tile Wang sets over the same grass, from scripts/pixellab-map.mjs. Files
-// are named tile_<mask>, the mask being which corners are grass (NW 8, NE 4, SW 2, SE 1).
-const TERRAIN_DIRS = { stone: 'assets/Map/stone', water: 'assets/Map/water' };
+// Arena floor art: a 16-tile Wang set over the grass, from scripts/pixellab-map.mjs. Files are named
+// tile_<mask>, the mask being which corners are grass (NW 8, NE 4, SW 2, SE 1). A water set was
+// generated too and dropped — the arena has no water.
+const TERRAIN_DIRS = { stone: 'assets/Map/stone' };
 
 const CHARACTERS = [
   {
@@ -168,10 +169,9 @@ ${blocks}
 export const WEAPON_SPRITES: Record<CharacterId, number> = {
 ${weaponEntries}
 };
-/** The two terrain sets, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
- * Mask 15 is all grass — the renderer takes its base meadow from each set's mask 15 — and mask 0 is
- * all of the other terrain. */
-export const TERRAIN_TILES: Record<'stone' | 'water', Record<number, number>> = {
+/** The terrain set, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
+ * Mask 15 is all grass — the renderer builds the whole meadow from it — and mask 0 is all paving. */
+export const TERRAIN_TILES: Record<'stone', Record<number, number>> = {
 ${terrainEntries}
 };
 `;
