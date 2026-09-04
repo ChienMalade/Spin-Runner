@@ -36,9 +36,16 @@ const SHADOW_DASH_SCALE = 0.72;
 /** Zoom for a player at minimum size. Lower than it was (1.2): the whole game now sits further
  * back, so there is more field on screen at every level. */
 const BASE_ZOOM = 0.9;
-/** Floor on the zoom. Compensating exactly at the largest size would open the view well past the
- * arena walls; this stops it a little short of that. */
-const MIN_ZOOM = 0.13;
+/** Floor on the zoom. */
+const MIN_ZOOM = 0.22;
+/** How much of the player's growth the camera cancels out, as an exponent on the growth multiplier.
+ *
+ * 1 is exact compensation: your character holds one size on screen and everyone else shrinks. That
+ * was tried and it is too much — at maximum size the whole 6000-unit arena fits on screen and every
+ * other player is a speck. 0.7 keeps the same read (the world pulls away faster than you grow) at a
+ * third of the strength: a maxed player sees about 3600 units across instead of the whole field, and
+ * still looks roughly two and a half times bigger than they started. */
+const ZOOM_COMPENSATION = 0.7;
 const MAX_ZOOM = 1.2;
 /** Mirrors BASE_RADIUS in server/src/entities.ts — used only to turn a radius back into a growth
  * multiplier for the camera. */
@@ -166,16 +173,15 @@ function approach(current: number, target: number, dtSec: number, tau: number): 
   return current + (target - current) * k;
 }
 
-/** The camera pulls back in exact proportion to how big the local player is, so YOUR character
- * always covers the same number of screen pixels whatever level you are. Growing therefore never
- * makes you look bigger — it makes everyone else look smaller, which is the read we want.
+/** The camera pulls back as the local player grows, faster than they grow, so growing reads mostly
+ * as everyone else shrinking rather than as you swelling. See ZOOM_COMPENSATION for how much.
  *
  * The growth multiplier is recovered from the radius the server already sends (radius is
  * BASE_PLAYER_RADIUS * scaleFor(tier)) rather than duplicating the server's curve here, where the
  * two copies would eventually drift apart. */
 function targetZoomFor(radius: number): number {
   const scale = Math.max(1, radius / BASE_PLAYER_RADIUS);
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, BASE_ZOOM / scale));
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, BASE_ZOOM / Math.pow(scale, ZOOM_COMPENSATION)));
 }
 
 function hexToNum(hex: string): number {
