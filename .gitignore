@@ -43,3 +43,6 @@ yarn-error.*
 
 # PixelLab scratch (previews, API spec dumps)
 .pixellab-tmp/
+
+# Local dev-server config: holds machine-specific paths
+.claude/launch.json
