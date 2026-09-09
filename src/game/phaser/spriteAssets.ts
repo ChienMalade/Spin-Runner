@@ -585,9 +585,10 @@ export const WEAPON_SPRITES: Record<CharacterId, number> = {
   pablo: require('../../../assets/Character/épée pablo/une_epee_en_jouet_verticale/rotations/une_epee_en_jouet_verticale.png'),
   sahur: require('../../../assets/Character/une_batte_de_baseball_vertical/une_batte_de_baseball_vertical/rotations/une_batte_de_baseball_vertical.png'),
 };
-/** The terrain set, indexed by corner mask: which corners are grass, NW 8 / NE 4 / SW 2 / SE 1.
- * Mask 15 is all grass — the renderer builds the whole meadow from it — and mask 0 is all paving. */
-export const TERRAIN_TILES: Record<'stone', Record<number, number>> = {
+/** The terrain sets, indexed by corner mask: which corners are the FIRST terrain, NW 8 / NE 4 /
+ * SW 2 / SE 1. For 'stone', mask 15 is all grass and mask 0 all paving; for 'meadow', mask 15 is
+ * plain grass and mask 0 the flowery grass the field is built from. */
+export const TERRAIN_TILES: Record<'stone' | 'meadow', Record<number, number>> = {
   stone: {
     0: require('../../../assets/Map/stone/tile_0.png'),
     1: require('../../../assets/Map/stone/tile_1.png'),
@@ -605,5 +606,23 @@ export const TERRAIN_TILES: Record<'stone', Record<number, number>> = {
     13: require('../../../assets/Map/stone/tile_13.png'),
     14: require('../../../assets/Map/stone/tile_14.png'),
     15: require('../../../assets/Map/stone/tile_15.png'),
+  },
+  meadow: {
+    0: require('../../../assets/Map/meadow/tile_0.png'),
+    1: require('../../../assets/Map/meadow/tile_1.png'),
+    2: require('../../../assets/Map/meadow/tile_2.png'),
+    3: require('../../../assets/Map/meadow/tile_3.png'),
+    4: require('../../../assets/Map/meadow/tile_4.png'),
+    5: require('../../../assets/Map/meadow/tile_5.png'),
+    6: require('../../../assets/Map/meadow/tile_6.png'),
+    7: require('../../../assets/Map/meadow/tile_7.png'),
+    8: require('../../../assets/Map/meadow/tile_8.png'),
+    9: require('../../../assets/Map/meadow/tile_9.png'),
+    10: require('../../../assets/Map/meadow/tile_10.png'),
+    11: require('../../../assets/Map/meadow/tile_11.png'),
+    12: require('../../../assets/Map/meadow/tile_12.png'),
+    13: require('../../../assets/Map/meadow/tile_13.png'),
+    14: require('../../../assets/Map/meadow/tile_14.png'),
+    15: require('../../../assets/Map/meadow/tile_15.png'),
   },
 };

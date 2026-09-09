@@ -10,8 +10,12 @@ export const weaponKey = (char: CharacterId) => `weapon-${char}`;
 /** Arena floor art. These never become Phaser textures: the scene paints them once into a single
  * ground image, so they are handed back as raw images rather than registered individually. */
 export const stoneKey = (mask: number) => `stone-${mask}`;
-/** The set's all-grass tile, which the whole meadow is built from. */
+/** The meadow set: plain grass blending into flowery grass, drawn in drifts over the field. */
+export const flowersKey = (mask: number) => `flowers-${mask}`;
+/** The tile the whole field is built from. */
 export const grassKey = () => 'grass';
+/** The grass baked into the stone set's transition tiles, used only as a colour reference. */
+export const stoneGrassKey = 'stone-grass';
 
 /** Loads every character/sword PNG into plain HTMLImageElements, keyed by the texture name the
  * scene will register them under.
@@ -24,8 +28,14 @@ export async function loadSpriteImages(): Promise<Map<string, HTMLImageElement>>
   const wanted: [string, number][] = [];
   for (const char of CHARACTER_IDS) wanted.push([weaponKey(char), WEAPON_SPRITES[char]]);
   for (let mask = 0; mask < 16; mask++) wanted.push([stoneKey(mask), TERRAIN_TILES.stone[mask]]);
-  // Mask 15 is the set's all-grass tile — the meadow.
-  wanted.push([grassKey(), TERRAIN_TILES.stone[15]]);
+  for (let mask = 0; mask < 16; mask++) wanted.push([flowersKey(mask), TERRAIN_TILES.meadow[mask]]);
+  // The field's base is the meadow set's plain grass; its flowery grass is laid over the top in
+  // drifts. The stone set's all-grass tile was used as the base first and is bare — the model put
+  // its detail into that set's TRANSITION tiles and left its full-grass tile plain, so the whole
+  // field inherited the plain one.
+  wanted.push([grassKey(), TERRAIN_TILES.meadow[15]]);
+  // The stone set's own grass, kept only to measure the tone the paving expects to meet.
+  wanted.push([stoneGrassKey, TERRAIN_TILES.stone[15]]);
   for (const char of CHARACTER_IDS) {
     const sprites = CHARACTERS[char];
     for (const dir of DIRECTIONS) {

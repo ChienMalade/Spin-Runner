@@ -1,4 +1,4 @@
-import { grassKey, stoneKey } from '@/game/phaser/loadSprites';
+import { flowersKey, grassKey, stoneGrassKey, stoneKey } from '@/game/phaser/loadSprites';
 
 /** Source pixels per ground tile. 64 to match the character art exactly: one pixel of ground is one
  * pixel of character, which is what makes the scene read as one piece of art. An earlier 32px floor
@@ -36,9 +36,7 @@ const RIM_WIDTH = 0.022;
  *
  * The blur is a wrapping box blur, so the correction itself is seamless.
  */
-function flattenTile(img: HTMLImageElement, radius: number): HTMLCanvasElement {
-  const w = img.width;
-  const h = img.height;
+function flattenTile(img: CanvasImageSource, w: number, h: number, radius: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -144,6 +142,35 @@ function makeSeamless(src: CanvasImageSource, w: number, h: number): HTMLCanvasE
   return out;
 }
 
+/** Shifts an image's colours so its mean matches another's.
+ *
+ * The field's grass and the paving's transition tiles come from separate generations and their
+ * greens differ; laid against each other that difference draws a line along every road. Matching the
+ * measured means makes the join disappear. */
+function toneMatch(src: CanvasImageSource, w: number, h: number, target: [number, number, number]) {
+  const from = meanColor(src, w, h);
+  const gain = [
+    target[0] / Math.max(1, from[0]),
+    target[1] / Math.max(1, from[1]),
+    target[2] / Math.max(1, from[2]),
+  ];
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d');
+  if (!ctx) return c;
+  ctx.drawImage(src, 0, 0);
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = Math.min(255, d[i] * gain[0]);
+    d[i + 1] = Math.min(255, d[i + 1] * gain[1]);
+    d[i + 2] = Math.min(255, d[i + 2] * gain[2]);
+  }
+  ctx.putImageData(image, 0, 0);
+  return c;
+}
+
 /** Mean colour of an image's opaque pixels. */
 function meanColor(img: CanvasImageSource, w: number, h: number): [number, number, number] {
   const c = document.createElement('canvas');
@@ -181,6 +208,31 @@ function hash2(x: number, y: number, seed: number): number {
   h = Math.imul(h, 0xc2b2ae35);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
+}
+
+/** Smooth value noise: cosine interpolation between hashed lattice points. Used to decide where the
+ * flowers grow, so they come in soft drifts rather than on a grid. */
+function valueNoise(x: number, y: number, seed: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = x - x0;
+  const fy = y - y0;
+  const sx = (1 - Math.cos(fx * Math.PI)) / 2;
+  const sy = (1 - Math.cos(fy * Math.PI)) / 2;
+  const n00 = hash2(x0, y0, seed);
+  const n10 = hash2(x0 + 1, y0, seed);
+  const n01 = hash2(x0, y0 + 1, seed);
+  const n11 = hash2(x0 + 1, y0 + 1, seed);
+  return (n00 * (1 - sx) + n10 * sx) * (1 - sy) + (n01 * (1 - sx) + n11 * sx) * sy;
+}
+
+/** Where the flowery grass grows.
+ *
+ * Laying the flowery tile over the WHOLE field was tried and looked worse than plain grass: daisies
+ * are distinctive enough that repeating them every tile draws an unmistakable lattice. In drifts
+ * they read as meadow instead, and the repeat has nothing regular to latch onto. */
+function isFlowery(cx: number, cy: number): boolean {
+  return valueNoise(cx / 7, cy / 7, 41) * 0.7 + valueNoise(cx / 2.5, cy / 2.5, 43) * 0.3 > 0.56;
 }
 
 /** Wobble applied to a region's rim so nothing in the arena is a perfect circle. */
@@ -291,11 +343,35 @@ export function paintGround(
   // structure, which the cross-fade then turned into a soft quilt. The radius is deliberately large
   // (22 of 64) so almost nothing below the scale of individual blades survives.
   const grassSrc = images.get(grassKey());
+  const stoneGrass = images.get(stoneGrassKey);
   const grass = grassSrc
-    ? makeSeamless(flattenTile(grassSrc, 22), grassSrc.width, grassSrc.height)
+    ? makeSeamless(
+        flattenTile(
+          stoneGrass
+            ? toneMatch(grassSrc, grassSrc.width, grassSrc.height, meanColor(stoneGrass, stoneGrass.width, stoneGrass.height))
+            : grassSrc,
+          grassSrc.width,
+          grassSrc.height,
+          22
+        ),
+        grassSrc.width,
+        grassSrc.height
+      )
     : undefined;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) draw(grass, x, y);
+  }
+
+  // --- flower drifts -----------------------------------------------------------------------------
+  // The meadow set blends plain grass into flowery grass, so the drifts get drawn edges instead of
+  // an outline I would have to invent.
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const mask = cornerMask(isFlowery, x, y);
+      // 15 is all plain grass: nothing to add, the base tile already shows.
+      if (mask === 15) continue;
+      draw(images.get(flowersKey(mask)), x, y);
+    }
   }
 
   // --- the paving --------------------------------------------------------------------------------

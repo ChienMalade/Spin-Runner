@@ -123,12 +123,16 @@ const groups = {
         `no grass on the stone. ${STYLE}`,
       'tileset'
     ),
-  water: () =>
+  // The stone set's all-grass tile is plain: the model put its detail into the TRANSITION tiles,
+  // which carry tufts, daisies and clover, and left the full-grass one flat. The field inherited the
+  // flat one. Asking for a corner set between two kinds of grass gets that richer meadow as a
+  // COMPLETE tile (mask 0), and the blends in between become flower patches easing into plain grass.
+  meadow: () =>
     generate(
-      'water',
-      `1) ${GRASS} 2) clear shallow turquoise water over a pale sandy bed, gentle ripples. ${STYLE}`,
-      'tileset',
-      styleFromGrass('stone')
+      'meadow',
+      `1) ${GRASS} 2) the same meadow thick with small white daisies, taller darker tufts and ` +
+        `clover leaves scattered through it. ${STYLE}`,
+      'tileset'
     ),
 };
 

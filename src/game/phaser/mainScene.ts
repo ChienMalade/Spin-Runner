@@ -279,8 +279,7 @@ interface SimpleParticle {
 }
 
 interface BonusVisual {
-  circle: Phaser.GameObjects.Arc;
-  icon: Phaser.GameObjects.Text;
+  image: Phaser.GameObjects.Image;
 }
 
 interface PlayerVisual {
@@ -288,6 +287,10 @@ interface PlayerVisual {
   character: CharacterId;
   body: Phaser.GameObjects.Sprite;
   nameText: Phaser.GameObjects.Text;
+  /** Last texture and frame the aura stamps were pointed at, so they are only re-pointed when the
+   * body's animation actually steps. */
+  auraTexKey: string;
+  auraFrameName: string | number;
   /** Soft ellipse on the ground under the character. Purely visual, and the single cheapest thing
    * that stops everyone looking like they are hovering. */
   shadow: Phaser.GameObjects.Image;
@@ -695,25 +698,51 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
       });
     }
 
+    /** One texture per bonus type — the coloured disc with its icon already drawn on it.
+     *
+     * Each bonus used to be an Arc plus a Text. Both break the renderer's batch (a Text carries its
+     * own texture, a shape is geometry), and neither is culled off-camera the way an Image is. With
+     * 75 bonuses spread over the arena that was ~150 objects submitted every frame, nearly all of
+     * them off screen. Seven shared textures on plain Images batch into one draw call and cull for
+     * free, and the result is pixel-identical. */
+    private bonusTexture(type: BonusType): string {
+      const key = `bonus-${type}`;
+      if (this.textures.exists(key)) return key;
+
+      const size = BONUS_RADIUS * 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = `#${BONUS_COLORS[type].toString(16).padStart(6, '0')}`;
+        ctx.beginPath();
+        ctx.arc(BONUS_RADIUS, BONUS_RADIUS, BONUS_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${BONUS_RADIUS * 1.1}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(BONUS_ICONS[type], BONUS_RADIUS, BONUS_RADIUS);
+      }
+      this.textures.addCanvas(key, canvas);
+      return key;
+    }
+
     private updateBonuses(bonuses: BonusState[]) {
       const liveIds = new Set<string>();
       for (const b of bonuses) {
         liveIds.add(b.id);
-        let vis = this.bonusVisuals.get(b.id);
-        if (!vis) {
-          const circle = this.add.circle(b.x, b.y, BONUS_RADIUS, BONUS_COLORS[b.type]).setDepth(DEPTH_BONUS);
-          const icon = this.add
-            .text(b.x, b.y, BONUS_ICONS[b.type], { fontSize: `${BONUS_RADIUS * 1.1}px` })
-            .setOrigin(0.5, 0.5)
+        if (!this.bonusVisuals.has(b.id)) {
+          const image = this.add
+            .image(b.x, b.y, this.bonusTexture(b.type))
+            .setDisplaySize(BONUS_RADIUS * 2, BONUS_RADIUS * 2)
             .setDepth(DEPTH_BONUS);
-          vis = { circle, icon };
-          this.bonusVisuals.set(b.id, vis);
+          this.bonusVisuals.set(b.id, { image });
         }
       }
       for (const [id, vis] of this.bonusVisuals) {
         if (!liveIds.has(id)) {
-          vis.circle.destroy();
-          vis.icon.destroy();
+          vis.image.destroy();
           this.bonusVisuals.delete(id);
         }
       }
@@ -774,6 +803,8 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
 
       return {
         character,
+        auraTexKey: '',
+        auraFrameName: '',
         shadow,
         body,
         nameText,
@@ -889,6 +920,13 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
 
       // One source pixel is (spriteSize / frame width) world units once the art is scaled up.
       const texel = spriteSize / Math.max(1, vis.body.frame.width);
+      // setTexture rebinds and re-measures the frame, and there are 24 stamps per player. The body's
+      // frame only changes on an animation step, so ask once and skip the call when it has not.
+      const texKey = vis.body.texture.key;
+      const frameName = vis.body.frame.name;
+      const frameChanged = texKey !== vis.auraTexKey || frameName !== vis.auraFrameName;
+      vis.auraTexKey = texKey;
+      vis.auraFrameName = frameName;
       vis.auraStamps.forEach((stamp, i) => {
         const bandIndex = Math.floor(i / OUTLINE_OFFSETS.length);
         const band = AURA_BANDS[bandIndex];
@@ -898,7 +936,7 @@ export function createMainScene(PhaserNS: typeof Phaser, spriteImages: Map<strin
         const [ox, oy] = OUTLINE_OFFSETS[i % OUTLINE_OFFSETS.length];
         const step = texel * band.texels;
         // Same frame as the body, so the outline tracks the animation exactly.
-        stamp.setTexture(vis.body.texture.key, vis.body.frame.name);
+        if (frameChanged) stamp.setTexture(texKey, frameName);
         stamp.setTint(AURA_COLORS[aura.kind]);
         stamp.setDisplaySize(spriteSize, spriteSize);
         stamp.setPosition(vis.body.x + ox * step, vis.body.y + oy * step);
