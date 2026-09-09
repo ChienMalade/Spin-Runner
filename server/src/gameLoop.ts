@@ -27,6 +27,7 @@ import {
   gainSwordTier,
   HP_REGEN_FRACTION_PER_SEC,
   KNOCKBACK_IMPULSE,
+  growthCapFor,
   maxHpFor,
   moveSpeedFor,
   radiusFor,
@@ -307,6 +308,9 @@ export class GameWorld {
     }
     p.inputDx = dx;
     p.inputDy = dy;
+    // Latch the press here, where every message is seen, rather than in the tick, which only samples
+    // 30 times a second and so misses anything shorter than 33ms.
+    if (sprint && !p.sprintInput) p.dashRequested = true;
     p.sprintInput = sprint;
   }
 
@@ -344,7 +348,7 @@ export class GameWorld {
 
       // A ready dash charge is a persisted count (0..maxDashCharges). A press fires one instantly if
       // any are ready — no sprint/hold mechanic, holding the button does nothing extra.
-      if (p.sprintInput && !p.prevSprintInput && p.dashCharges > 0) {
+      if (p.dashRequested && p.dashCharges > 0) {
         const dirLen = Math.hypot(p.inputDx, p.inputDy);
         const dashAngle = dirLen > 0.01 ? Math.atan2(p.inputDy, p.inputDx) : p.facing;
         p.dashAngle = dashAngle;
@@ -352,6 +356,7 @@ export class GameWorld {
         p.dashCharges--;
         effects.push({ type: 'dash', x: p.x, y: p.y, actorId: p.id, angle: dashAngle });
       }
+      p.dashRequested = false;
       p.prevSprintInput = p.sprintInput;
 
       if (p.dashRemaining > 0) {
@@ -586,9 +591,10 @@ export class GameWorld {
   /** No soul drop on a kill — the killer instead directly absorbs whichever of the victim's build
    * stats (size, sword count, spin tier, sword tier) were better than their own. */
   private absorbFromVictim(attacker: ServerPlayer, victim: ServerPlayer) {
+    const cap = growthCapFor(attacker);
     if (victim.growthTier > attacker.growthTier) {
       const oldMax = attacker.maxHp;
-      attacker.growthTier = victim.growthTier;
+      attacker.growthTier = Math.min(cap, victim.growthTier);
       attacker.growthProgress = 0;
       attacker.maxHp = maxHpFor(attacker);
       attacker.hp += attacker.maxHp - oldMax;

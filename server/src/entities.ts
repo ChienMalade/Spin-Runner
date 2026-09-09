@@ -106,6 +106,12 @@ export interface ServerPlayer {
   /** True while the dash button is held — only the rising edge (press) matters, to fire a dash. */
   sprintInput: boolean;
   prevSprintInput: boolean;
+  /** Set the moment a dash press ARRIVES, cleared when the tick consumes it.
+   *
+   * The tick used to look for a rising edge in sprintInput, which meant any press shorter than one
+   * 33ms tick was raised and cleared between ticks and never seen at all — a quick tap, which is the
+   * natural way to dash, simply did nothing. Measured: held 200ms it fires, tapped it does not. */
+  dashRequested: boolean;
   /** Fill (0..1) of the next dash-charge graduation. Becomes a real charge the instant it hits 1. */
   chargeFill: number;
   /** While now < this, the next graduation doesn't start filling yet — the brief pause between charges. */
@@ -229,6 +235,7 @@ export function createPlayer(name: string, isBot: boolean, x: number, y: number)
     inputDy: 0,
     sprintInput: false,
     prevSprintInput: false,
+    dashRequested: false,
     chargeFill: 1,
     nextChargeFillAt: 0,
     dashCharges: 0,
@@ -269,6 +276,7 @@ export function resetForRespawn(p: ServerPlayer, x: number, y: number) {
   p.vy = 0;
   p.sprintInput = false;
   p.prevSprintInput = false;
+  p.dashRequested = false;
   p.chargeFill = 1;
   p.nextChargeFillAt = 0;
   p.dashCharges = 0;
@@ -342,10 +350,20 @@ export function removeSword(p: ServerPlayer): boolean {
   return true;
 }
 
+/** Bots stop growing well before players do. Left uncapped they reached the same size as a maxed
+ * player and the arena filled with giants; a bot now tops out at tier 12, which is 5.61x base size
+ * against a player's 8.25x — about two thirds. Raise or lower this one number to retune. */
+export const BOT_GROWTH_LEVEL_MAX = 12;
+
+/** The highest growth tier this player may reach. */
+export function growthCapFor(p: ServerPlayer): number {
+  return p.isBot ? BOT_GROWTH_LEVEL_MAX : GROWTH_LEVEL_MAX;
+}
+
 /** A "soul" bonus pickup: same escalating-cost leveling as the others. Growth being a level means
  * the extra max-HP capacity it grants (see maxHpFor) is handed over as current HP too. */
 export function gainGrowthLevel(p: ServerPlayer) {
-  if (p.growthTier >= GROWTH_LEVEL_MAX) return;
+  if (p.growthTier >= growthCapFor(p)) return;
   p.growthProgress++;
   if (p.growthProgress >= pickupsToNextLevel(p.growthTier)) {
     const oldMax = maxHpFor(p);
